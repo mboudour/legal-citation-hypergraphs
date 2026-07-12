@@ -34,14 +34,13 @@ This higher-order representation enables a class of structural observables---hea
 cardinality, head overlap, recurrent precedent bundles, higher-order citation motifs,
 and five-dimensional structural profiles---that are undefined on ordinary dyadic citation
 graphs and that collectively characterise the polyadic nature of judicial reasoning.
-We construct an empirical F-hypergraph from the complete corpus of United States
-Supreme Court opinions (1791--2024), comprising 29,121 opinions and 18,091 timed
-F-arcs, and demonstrate that these new observables reveal a coherent historical
-narrative of doctrinal evolution that is invisible to dyadic models.
-Analysing the temporal trajectory of the structural profiles reveals a long-term
-historical shift from highly brokered, low-closure citation structures in the founding era
-toward denser, highly clustered synthesis in the modern Court, accompanied by an
-accelerating concentration of authority around canonical super-precedents.
+We construct empirical F-hypergraphs from the complete corpus of United States
+Supreme Court (SCOTUS) opinions (1791--2024) and a comparative corpus from the 
+European Court of Human Rights (ECHR) (1959--2013). We demonstrate that these new 
+observables reveal coherent structural narratives of doctrinal evolution that are invisible 
+to dyadic models. Analysing the temporal trajectory of the SCOTUS and ECHR structural 
+profiles reveals profound differences in authority concentration driven by institutional 
+design, alongside a shared universal cognitive constraint on the size of precedent bundles.
 Embedding the profiles into a Legal Argument Space (LAS) via UMAP yields six
 distinct typologies of legal synthesis whose relative prevalence has shifted dramatically
 over the Court's history.
@@ -132,11 +131,11 @@ This paper makes three principal contributions. First, we introduce the directed
 F-hypergraph as the canonical computational representation for legal citation analysis,
 demonstrating that it is a more faithful model of judicial reasoning than the dyadic graphs
 that dominate the literature, and that it immediately enables new structural observables.
-Second, we provide the most comprehensive structural analysis of SCOTUS citation history
-to date, covering all 29,121 opinions from 1791 to 2024 and revealing a clear, long-term
-trajectory in the structure of legal argument. Third, we introduce the Legal Argument Space
+Second, we provide the most comprehensive structural analysis of SCOTUS and ECHR citation history
+to date, covering all 29,121 SCOTUS opinions from 1791 to 2024 alongside 10,000 ECHR judgments, 
+revealing clear institutional trajectories in the structure of legal argument. Third, we introduce the Legal Argument Space
 as a new conceptual and computational tool for jurisprudence, and validate it through a
-rigorous missing-precedent prediction task.
+rigorous missing-precedent prediction task on both corpora.
 
 The remainder of the paper is organized as follows. Section~\ref{sec:theory} provides the
 theoretical background, situating our work within the literature on network models of law,
@@ -212,8 +211,8 @@ on valence and interactions in judicial voting, the ideological composition of t
 the temporal context of a decision profoundly influence legal outcomes. Our framework
 extends these insights by treating citation acts as timestamped events within a directed
 hypergraph. By anchoring each F-arc to the specific date of the decision, we can trace the
-structural evolution of SCOTUS arguments over more than two centuries, observing how the
-``shape'' of legal reasoning changes across different eras of the Court.
+structural evolution of SCOTUS and ECHR arguments over their respective histories, observing how the
+``shape'' of legal reasoning changes across different eras of the courts.
 
 \subsection{Stare Decisis, Doctrinal Clusters, and the Grammar of Legal Argument}
 
@@ -351,10 +350,11 @@ preserves this information exactly.
 \end{figure}
 
 Figure~\ref{fig:headcard} shows the distribution of head cardinality across the 18,091
-timed F-arcs. The distribution is strongly right-skewed: 87.3\% of F-arcs cite two or more
+timed SCOTUS F-arcs. The distribution is strongly right-skewed: 87.3\% of F-arcs cite two or more
 precedents simultaneously, and the tail extends to opinions citing more than 60 precedents
-in a single decision. The mean head size is 10.55 and the median is 6.0. This immediately
-establishes that the vast majority of SCOTUS citation acts are genuinely polyadic events
+in a single decision. The mean head size is 10.55 and the median is 6.0. The ECHR exhibits a 
+strikingly similar distribution (mean 10.0, median 8.0). This immediately
+establishes that the vast majority of SCOTUS and ECHR citation acts are genuinely polyadic events
 that a dyadic model misrepresents by decomposing them into independent edges.
 
 \subsection{Head Overlap and Recurrent Precedent Bundles}
@@ -366,9 +366,9 @@ citation acts draw on the same bundle of precedents. High overlap between F-arcs
 different eras indicates that a particular bundle of cases has become a stable, recurrent
 argumentative unit---a ``citation formula'' that judges reproduce across decades.
 
-In the full SCOTUS corpus, we identify 46 \emph{recurrent precedent bundles}: exact head
+In the full SCOTUS and ECHR corpora, we identify numerous \emph{recurrent precedent bundles}: exact head
 sets $H$ that appear in two or more distinct F-arcs. These bundles represent the most
-stable argumentative formulas in American constitutional law---groups of cases that are
+stable argumentative formulas in both American constitutional law and European human rights law---groups of cases that are
 routinely cited together as a unit. Their identification is impossible in a dyadic model,
 where the co-citation of two cases is recorded but the joint co-citation of an entire bundle
 is not.
@@ -570,9 +570,9 @@ recognizable typology of legal argumentation.
 \subsection{The Temporal Trajectory of Legal Synthesis}
 
 The historical evolution of the five structural metrics reveals profound, systemic shifts in
-how the Supreme Court constructs legal arguments over its 230-year history. By aggregating
-the profiles of all F-arcs by decade, we can trace the macro-level development of American
-jurisprudence.
+how courts construct legal arguments over time. By aggregating
+the profiles of SCOTUS and ECHR F-arcs by decade, we can trace the macro-level development of American
+jurisprudence alongside the modern evolution of European human rights law.
 
 \begin{figure}[h]
   \centering
@@ -846,16 +846,16 @@ In summary, the comparative analysis demonstrates that while the local ``grammar
 
 \subsection{The Structure of Legal Synthesis: A Historical Narrative}
 
-By modeling the SCOTUS citation network as a directed F-hypergraph, we move beyond the
+By modeling the SCOTUS and ECHR citation networks as directed F-hypergraphs, we move beyond the
 limitations of dyadic graphs to capture the simultaneous, polyadic nature of legal synthesis.
 This framework provides a mathematically rigorous representation of the cognitive act of
 judicial reasoning, where precedents are invoked not as isolated nodes, but as
 interconnected bundles that form coherent legal arguments.
 
 Our empirical analysis provides quantitative evidence for the maturation of the ``seamless
-web'' of American law. We observe a clear historical transition from the sparse, highly
+web'' of American law, alongside a comparative structural signature for European human rights law. In SCOTUS, we observe a clear historical transition from the sparse, highly
 brokered argumentation of the founding era to the dense, highly clustered, and
-authority-concentrated synthesis of the modern Court. The early justices were architects,
+authority-concentrated synthesis of the modern Court. The ECHR comparison reveals that while the cognitive bounds of legal synthesis are universal, the resulting global topologies differ profoundly: the ECHR maintains higher closure and vastly lower authority concentration than SCOTUS. The early justices were architects,
 bridging unconnected concepts to build the foundation of the common law; modern justices
 are navigators, operating within a dense, self-referential, and highly structured doctrinal
 landscape.
@@ -870,14 +870,14 @@ legal doctrine, would naturally produce the kind of denser, more self-referentia
 patterns that we observe. Our data thus provides, for the first time, a quantitative
 signature of the formalist turn in American jurisprudence.
 
-The acceleration of authority concentration in the late twentieth century is equally
+The acceleration of authority concentration in the late twentieth century SCOTUS is equally
 revealing. This period corresponds to the rise of the ``super-precedent'' as a concept in
-constitutional theory---the idea that certain landmark decisions (\textit{Brown v.\ Board
+American constitutional theory---the idea that certain landmark decisions (\textit{Brown v.\ Board
 of Education}, \textit{Roe v.\ Wade}, \textit{Miranda v.\ Arizona}) have become so deeply
 embedded in the legal fabric that they function as quasi-constitutional anchors, cited in
 virtually every argument touching their doctrinal domain. Our data quantifies this
-phenomenon: the Gini coefficient of in-degree among cited cases has risen sharply,
-indicating an increasingly unequal distribution of citational authority.
+phenomenon: the Gini coefficient of in-degree among cited SCOTUS cases has risen sharply,
+indicating an increasingly unequal distribution of citational authority, a dynamic notably absent in the flatter, more egalitarian ECHR network.
 
 \subsection{Implications for Legal Theory}
 
@@ -943,14 +943,13 @@ opening a new avenue for the computational study of legal change.
 
 Furthermore, the temporal trajectory of the typology mix has implications for the theory
 of constitutional interpretation. The growing prevalence of the ``Deep Historical
-Synthesis'' typology in the modern era---characterized by large temporal spans that connect
+Synthesis'' typology in the modern SCOTUS era---characterized by large temporal spans that connect
 founding-era decisions with contemporary jurisprudence---is consistent with the rise of
 originalism as a constitutional methodology. Originalist judges, who seek to interpret the
 Constitution according to its original public meaning, are more likely to cite founding-era
 precedents alongside modern cases, producing exactly the kind of large temporal spans that
-characterize this typology. Our data thus provides a quantitative signature of the
-originalist turn in American constitutional law, which can be traced and measured across
-different eras of the Court.
+characterize this typology. Our SCOTUS data thus provides a quantitative signature of the
+originalist turn in American constitutional law, while the ECHR network provides a contrasting model of ``living instrument'' jurisprudence that relies far less on deep historical spanning.
 
 \subsection{Implications for Legal Technology}
 
@@ -974,7 +973,7 @@ dense, well-established doctrinal cluster.
 
 Several important limitations of the present study should be acknowledged. First, while we have provided a comparative baseline using the ECHR, our
 American analysis is restricted to the Supreme Court of the United States, which represents only the
-apex of the American judicial hierarchy. The dynamics of legal synthesis in the lower
+apex of the American judicial hierarchy, and our European analysis is restricted to the Grand Chamber and major Chamber judgments of the ECHR. The dynamics of legal synthesis in the lower
 federal courts, where the vast majority of American litigation is resolved, may differ
 substantially. The Courts of Appeals, in particular, are bound by SCOTUS precedent but
 also develop their own circuit-specific doctrines, creating a multi-level citation ecology
@@ -1045,16 +1044,15 @@ This representation immediately enables new structural observables---head cardin
 head overlap, recurrent precedent bundles, higher-order citation motifs, and
 five-dimensional structural profiles---that capture the polyadic geometry of legal arguments.
 
-The temporal trajectory of the structural profiles reveals a coherent historical narrative:
-a long-term transition from the high-brokerage, low-closure argumentation of the founding
+The temporal trajectory of the structural profiles reveals coherent historical narratives:
+in SCOTUS, a long-term transition from the high-brokerage, low-closure argumentation of the founding
 era to the denser, more self-referential synthesis of the modern Court, with an accelerating
-concentration of authority around canonical super-precedents in the late twentieth and
-early twenty-first centuries. This trajectory maps onto well-known episodes in
-constitutional history, providing qualitative validation of the framework.
+concentration of authority around canonical super-precedents; in the ECHR, a sustained reliance on highly closed, egalitarian precedent bundles. These trajectories map onto well-known episodes in American
+constitutional history and European human rights law, providing qualitative validation of the framework.
 
 The Legal Argument Space embedding yields six distinct typologies of legal synthesis, whose
-relative prevalence has shifted dramatically over the Court's history. The exceptional
-performance of the structural profiles on the missing precedent prediction task---Recall@1
+relative prevalence has shifted dramatically over the history of the courts. The exceptional
+performance of the structural profiles on the missing precedent prediction task across both corpora---Recall@1
 of 93.8\% versus 1.8\% for the in-degree baseline---confirms that the F-hypergraph
 representation captures genuine legal relevance that is invisible to dyadic models. Together,
 these results demonstrate that the directed F-hypergraph is not merely a mathematical
