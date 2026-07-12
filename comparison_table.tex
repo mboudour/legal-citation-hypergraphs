@@ -1,0 +1,28 @@
+\begin{table}[t]
+\centering
+\caption{Comparative structural statistics of the SCOTUS and ECHR
+         F-hypergraph corpora. SCOTUS figures are derived from the full
+         29{,}121-opinion dataset (1791--2024); ECHR figures are derived from
+         10{,}000 judgments retrieved from HUDOC (1959--2013).}
+\label{tab:scotus_echr_comparison}
+\begin{tabular}{lrr}
+\toprule
+\textbf{Metric} & \textbf{SCOTUS} & \textbf{ECHR} \\
+\midrule
+Opinions (nodes) & 29{,}121 & 10{,}000 \\
+Citation edges & 216{,}000$^{\dagger}$ & 10{,}608 \\
+F-arcs (citing opinions) & 24{,}837 & 1{,}057 \\
+Timed F-arcs & 18{,}091 & 942 \\
+Median head cardinality & 8 & 8 \\
+Mean head cardinality & 9.5 & 10.0 \\
+Max head cardinality & 200+ & 71 \\
+Mean closure & 0.084 & 0.112 \\
+Median closure & 0.056 & 0.071 \\
+Mean brokerage & 0.623 & 0.571 \\
+Median brokerage & 0.600 & 0.531 \\
+Max in-degree (authority) & 500+ & 285 \\
+Mean in-degree & 7.4 & 1.1 \\
+\bottomrule
+\multicolumn{3}{l}{\footnotesize $^{\dagger}$Estimated from CourtListener bulk data.}
+\end{tabular}
+\end{table}
