@@ -1,0 +1,18 @@
+# Virtual environment
+env/
+
+# Raw and processed data (too large for git)
+data/
+
+# Results (generated outputs — regenerate from scripts)
+results/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pkl
+*.npy
+
+# macOS
+.DS_Store
