@@ -1,1088 +1,371 @@
-\documentclass[11pt,a4paper]{article}
-
-\usepackage[margin=2.5cm]{geometry}
-\usepackage{amsmath,amssymb}
-\usepackage{graphicx}
-\usepackage{booktabs}
-\usepackage{hyperref}
-\usepackage[round]{natbib}
-\usepackage{caption}
-\usepackage{subcaption}
+\documentclass{svproc}
+\usepackage{graphicx}%
+\usepackage{multirow}%
+\usepackage{amsmath,amssymb,amsfonts}%
+\usepackage{mathrsfs}%
+\usepackage[title]{appendix}%
+\usepackage{xcolor}%
+\usepackage{textcomp}%
+\usepackage{manyfoot}%
+\usepackage{booktabs}%
+\usepackage{array}%
+\usepackage{algorithm}%
+\usepackage{algorithmicx}%
+\usepackage{algpseudocode}%
+\usepackage{listings}%
+\usepackage{url}
+\usepackage{placeins}
 \usepackage{microtype}
-\usepackage{lmodern}
-\usepackage{setspace}
-\onehalfspacing
-
-\title{\textbf{Legal Citation Directed Hypergraphs and the\\
-Computational Representation of Judicial Reasoning}}
-
-\author{Moses Boudourides\\
-\small School of Professional Studies, Northwestern University\\
-\small \href{mailto:moses.boudourides@northwestern.edu}{moses.boudourides@northwestern.edu}}
-
-\date{}
+\def\UrlFont{\rmfamily}
+\newcommand{\Hcal}{\mathcal{H}}
+\newcommand{\Ecal}{\mathcal{E}}
+\newcommand{\Vcal}{\mathcal{V}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\indicator}{\mathbf{1}}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
 
 \begin{document}
+\mainmatter
 
+\title{Temporal Directed F-Hypergraphs for Hyperlink Prediction}
+\titlerunning{Temporal Directed F-Hypergraphs for Hyperlink Prediction}
+\author{Moses Boudourides\inst{1}}
+\authorrunning{M. Boudourides}
+\institute{School of Professional Studies, Northwestern University, Chicago, IL, USA\\
+\email{moses.boudourides@northwestern.edu}}
 \maketitle
 
 \begin{abstract}
-Opinion-level legal citation datasets naturally induce citation F-hypergraphs: directed
-hypergraphs in which each citation act is represented as a single hyperedge (an F-arc)
-connecting a citing opinion to the simultaneous bundle of precedents it invokes.
-This higher-order representation enables a class of structural observables---head
-cardinality, head overlap, recurrent precedent bundles, higher-order citation motifs,
-and five-dimensional structural profiles---that are undefined on ordinary dyadic citation
-graphs and that collectively characterise the polyadic nature of judicial reasoning.
-We construct empirical F-hypergraphs from the complete corpus of United States
-Supreme Court (SCOTUS) opinions (1791--2024) and a comparative corpus from the 
-European Court of Human Rights (ECHR) (1959--2013). We demonstrate that these new 
-observables reveal coherent structural narratives of doctrinal evolution that are invisible 
-to dyadic models. Analysing the temporal trajectory of the SCOTUS and ECHR structural 
-profiles reveals profound differences in authority concentration driven by institutional 
-design, alongside a shared universal cognitive constraint on the size of precedent bundles.
-Embedding the profiles into a Legal Argument Space (LAS) via UMAP yields six
-distinct typologies of legal synthesis whose relative prevalence has shifted dramatically
-over the Court's history.
-A missing-precedent prediction task confirms that the polyadic structural profiles
-capture legally meaningful information that is invisible to dyadic models, achieving a
-Recall@1 of 93.8\% against 1.8\% for the standard in-degree heuristic.
+We formulate temporal directed hyperlink prediction for citation systems represented as singleton-tail directed F-hypergraphs. A citing document is a tail and its contemporaneous bundle of cited documents is a directed hyperedge head. Given a partially observed head at time $t$, the task ranks a hidden head member against historically available candidates. The formulation separates event-level higher-order prediction from ordinary dyadic link prediction and makes temporal admissibility explicit. We define temporal directed F-hypergraph hyperlink prediction, establish the scope of unique-tail reconstruction, and specify a fixed-snapshot chronological evaluation design. The autonomous empirical study treats eight scoring methods on equal grounds: NHP-D-mean, NHP-D-maxmin+, Hyper-SAGNN, CHESHIRE, DHGNN, HPRA, co-citation, and historical in-degree. On identical frozen candidates in Supreme~Court and European Court of Human Rights citation data, no method dominates every corpus and metric. NHP-D-maxmin+ is strongest on the SCOTUS ranking measures, while the smaller ECHR cohort displays metric-dependent results. The paper therefore offers a reproducible comparative benchmark for higher-order prediction on directed citation systems.
+\keywords{directed hypergraphs, temporal networks, hyperlink prediction, graph neural networks, citation networks}
 \end{abstract}
-
-\textbf{Keywords:} legal citation hypergraphs; directed F-hypergraphs; Supreme Court;
-computational jurisprudence; stare decisis; legal argument space; higher-order networks;
-network science of law
 
 \section{Introduction}
 
-The conception of law as a ``seamless web'' is a foundational metaphor in Anglo-American
-jurisprudence. It suggests that legal rules and precedents do not exist in isolation but are
-deeply interwoven, such that a perturbation in one doctrinal area reverberates throughout the
-system \citep{bommarito2009law}. In this view, legal reasoning is not merely a sequential chain
-of isolated authorities, but a complex, multidimensional fabric where concepts, doctrines,
-and historical precedents intersect and interact simultaneously. The metaphor captures
-something that practising lawyers and judges have long understood intuitively: that the law
-is not a collection of isolated rules, but a system of interrelated principles, doctrines, and
-precedents that constrain, inform, and illuminate each other.
+Many networked systems evolve through events that connect one source to a set of targets: a transaction invokes several instruments, a reaction maps reactants to products, and a document cites a bundle of earlier documents. A simple directed graph represents such an event by independent arcs. This is adequate for many graph-level questions, but it does not make the event head an explicit mathematical object on which a prediction task can be conditioned. Higher-order network models address this issue by representing interactions as hyperedges \cite{berge1973graphs,gallo1993directed}. The directed case is particularly important when source and target roles have distinct semantics.
 
-The empirical study of legal citation networks has a history stretching back to the pioneering
-work of Shepard's Citations in the nineteenth century \citep{shepard1873citations}, which first systematized the
-tracking of how cases cite each other. The digital revolution transformed this enterprise,
-enabling scholars to analyze the entire corpus of judicial decisions as a complex network.
-Seminal contributions by Fowler and colleagues \citep{fowler2007network} established that SCOTUS citation networks
-exhibit the hallmarks of complex networks: scale-free degree distributions, small-world
-clustering, and a hierarchical community structure that maps onto the substantive domains
-of American law. These findings confirmed the ``seamless web'' metaphor quantitatively: the
-law is indeed a highly connected, non-random network in which a small number of landmark
-cases serve as hubs connecting vast doctrinal territories.
+Citation data provide a tractable real-world instance. Each opinion is a source node and its contemporaneous set of cited precedents is a directed head. The resulting object is a directed F-hypergraph, in the terminology of Gallo et al.~\cite{gallo1993directed}. This paper focuses neither on legal interpretation nor on descriptive jurisprudence. It asks a network-science question: \emph{can a temporally admissible directed-hypergraph model recover a hidden member of a citation-event head?}
 
-Yet, despite the richness of this theoretical construct, empirical and computational models
-of legal citation have historically struggled to capture the simultaneous, multi-way synthesis
-characteristic of judicial reasoning. The standard approach in quantitative legal studies
-models citations as simple dyadic directed graphs, where a citing case connects to a cited
-case via a single edge. While dyadic models have yielded valuable insights into the global
-architecture of legal networks---revealing scale-free degree distributions, small-world
-properties, and the emergence of central ``hub'' cases---this reduction fundamentally
-misrepresents the cognitive act of legal synthesis. When a judge crafts an opinion, they do
-not cite precedents in a vacuum; rather, they invoke a bundle of precedents simultaneously
-to construct a coherent argument, establish a multi-pronged doctrinal test, or justify a
-paradigm shift. The interaction among the cited cases within that bundle is as crucial to the
-argument's structure as the connection between the citing and cited cases. A dyadic model
-that records only the individual edges from the citing case to each cited case loses precisely
-this relational information: it cannot tell us whether the cited cases were drawn from the
-same doctrinal cluster or from disparate areas of law, whether the argument was a routine
-application of settled doctrine or a bold synthesis bridging previously unconnected legal
-concepts.
+The question is a higher-order analogue of link prediction. The prediction task now is conditioned on the remaining members of a set-valued head, candidates must predate the event, and graph-derived inputs cannot use later events. These requirements matter in any temporal directed-hypergraph application, not only in citation networks.
 
-The central claim of this paper is that opinion-level legal citation datasets naturally induce
-citation F-hypergraphs, providing a higher-order representation of judicial opinions that
-supports new computational analyses of legal reasoning. The directed citation F-hypergraph
-is the representation; the scientific payoff comes from the higher-order structural analyses
-it makes possible. We do not introduce a new formalism for its own sake: we introduce a
-new computational representation of legal citations and demonstrate that it immediately
-enables a class of structural observables that are undefined on ordinary citation graphs and
-that collectively reveal a coherent historical narrative of doctrinal evolution.
+The contribution is fourfold. We (i) define temporal directed F-hypergraph hyperlink prediction and clarify the unique-tail case; (ii) specify a non-leaking chronological candidate-ranking design; (iii) give a common scoring interface and comparable descriptions for six published hypergraph-prediction methods plus two transparent baselines; and (iv) evaluate every method on the same frozen candidates, train--validation--test windows, and calibrated binary decision rule. The paper is deliberately narrow: it offers a mathematical task definition and an autonomous comparative benchmark rather than a theory of judicial institutions.
 
-Recent scholarship has increasingly recognized the limitations of dyadic models in capturing
-the true complexity of legal systems. \citet{sichelman2024network} have argued persuasively
-for more expressive network models of legal relations, emphasizing that the reduction of
-polyadic legal interactions to dyadic edges strips away essential structural information.
-Concurrently, \citet{coupette2024legal} introduced the framework of ``legal hypergraphs'' to
-capture the higher-order structures inherent in statutory and jurisprudential texts.
-Hypergraphs generalize traditional graphs by allowing edges (hyperedges) to connect any
-number of nodes, making them a natural mathematical fit for modeling simultaneous,
-multi-way interactions. Building on these advances, as well as prior work on measuring the
-complexity of the United States Code \citep{bommarito2010mathematical,katz2014measuring}
-and analyzing the temporal evolution of law \citep{coupette2024measuring}, this paper
-proposes a rigorous computational framework for profiling legal arguments.
+\section{Temporal Directed F-Hypergraphs}
+\label{sec:model}
 
-We model the precedential citation network of the United States Supreme Court (SCOTUS)
-as a directed F-hypergraph \citep{gallo1993directed}. In this representation, each citation
-event is formalized as an F-arc connecting a single citing opinion (the tail) to a set of
-simultaneously cited precedents (the head). This formulation preserves the bundle of
-citations as a single, cohesive act of legal synthesis. By computing a suite of structural
-metrics---closure, brokerage, authority concentration, temporal span, and community
-dispersion---on these F-arcs, we can quantify the internal structure of each argument. We
-then project these citation acts into a continuous ``Legal Argument Space'' (LAS), allowing
-us to map the historical evolution of judicial synthesis and identify distinct typologies of
-legal argumentation over more than two centuries of Supreme Court jurisprudence.
+\begin{definition}[Temporal directed F-hypergraph]
+Following \cite{gallo1993directed}, a directed hyperarc is an ordered pair $(T,H)$ of disjoint tail and head subsets of $\Vcal$. An \emph{F-arc} has a singleton tail $T=\{u\}$ and is written $(u,H)$. A temporal directed F-hypergraph is
+\begin{equation}
+\Hcal=(\Vcal,\Ecal,\tau),\qquad
+\Ecal\subseteq\{(u,H):u\in\Vcal,\;\emptyset\neq H\subseteq\Vcal\setminus\{u\}\},
+\label{eq:fhypergraph}
+\end{equation}
+where $\tau:\Vcal\cup\Ecal\to\R$ assigns times to vertices and F-arcs. An F-arc $e=(u,H)$ is \emph{time-respecting} when
+\begin{equation}
+\tau(v)<\tau(e)=\tau(u),\qquad \forall v\in H.
+\label{eq:temporal}
+\end{equation}
+\end{definition}
 
-This paper makes three principal contributions. First, we introduce the directed
-F-hypergraph as the canonical computational representation for legal citation analysis,
-demonstrating that it is a more faithful model of judicial reasoning than the dyadic graphs
-that dominate the literature, and that it immediately enables new structural observables.
-Second, we provide the most comprehensive structural analysis of SCOTUS and ECHR citation history
-to date, covering all 29,121 SCOTUS opinions from 1791 to 2024 alongside 10,000 ECHR judgments, 
-revealing clear institutional trajectories in the structure of legal argument. Third, we introduce the Legal Argument Space
-as a new conceptual and computational tool for jurisprudence, and validate it through a
-rigorous missing-precedent prediction task on both corpora.
+For a citation event, $u$ is the citing document and $H$ is its set of cited precedents. The historical state immediately before time $t$ is $\Hcal_{<t}=(\Vcal_{<t},\Ecal_{<t})$, where $\Vcal_{<t}=\{v:\tau(v)<t\}$ and $\Ecal_{<t}=\{e:\tau(e)<t\}$. Thus, condition~\eqref{eq:temporal} rules out a precedent that post-dates its citing opinion.
 
-The remainder of the paper is organized as follows. Section~\ref{sec:theory} provides the
-theoretical background, situating our work within the literature on network models of law,
-legal hypergraphs, and the temporal dynamics of legal systems. Section~\ref{sec:observables}
-demonstrates the new observables that the F-hypergraph representation makes possible.
-Section~\ref{sec:method} describes our methodology, including the data corpus, the
-F-hypergraph construction, and the structural profiling metrics.
-Section~\ref{sec:results} presents our empirical results, covering the temporal trajectory
-of legal synthesis, the Legal Argument Space typologies, and the missing-precedent
-validation. Section~\ref{sec:discussion} discusses the implications of our findings for legal
-theory and legal technology, and outlines directions for future research.
+\subsection{Dyadic projection and the unique-tail case}
 
-\section{Theoretical Background}
-\label{sec:theory}
+The directed dyadic projection is
+\begin{equation}
+\Pi(\Hcal)=\{(u,v):(u,H)\in\Ecal,\;v\in H\}.
+\label{eq:projection}
+\end{equation}
+The projection is informative, but its information-preservation properties depend on the event structure.
 
-\subsection{The Seamless Web and Network Models of Law}
+\begin{proposition}[Unique-tail reconstruction]
+Let $\mathfrak{F}_1$ be the class of directed F-hypergraphs in which each tail occurs in at most one F-arc. Then $\Pi$ is injective on $\mathfrak{F}_1$.
+\end{proposition}
+\begin{proof}
+For each tail $u$, define $H_u=\{v:(u,v)\in\Pi(\Hcal)\}$. The unique-tail assumption implies that either $H_u=\emptyset$ or the sole F-arc with tail $u$ is $(u,H_u)$. Hence $\Ecal$ is recovered from $\Pi(\Hcal)$. \qed
+\end{proof}
 
-The formalization of legal interconnectedness has deep roots in both jurisprudence and
-network science. \citet{bommarito2009law} provided one of the earliest comprehensive
-network representations of the SCOTUS corpus, demonstrating that the ``seamless web'' is
-not merely a metaphor but a quantifiable structural reality. By modeling the entire history
-of Supreme Court citations as a complex network, they showed that the law organizes itself
-into a highly connected structure where paths between seemingly disparate legal concepts
-are surprisingly short. Their work, alongside subsequent studies on distance measures in
-dynamic citation networks \citep{bommarito2010distance}, established that legal networks
-exhibit distinct macro-level properties, such as scale-free degree distributions (where a few
-landmark cases attract the vast majority of citations) and small-world clustering (where
-cases within specific legal domains are densely interconnected).
+The present citation construction deliberately assigns each document one citation-list F-arc, so the premise of Proposition~1 holds. This resolves the apparent tension in the citation setting: the F-hypergraph is not claimed to contain extra raw information relative to an adjacency list with unique tails. Its role is to preserve an \emph{event-level prediction task}: a candidate is scored together with the remaining cited head, not as an isolated dyadic arc. The non-injective case arises in applications in which the same source emits several events, such as recurring transactions, document revisions, or reactions; then the projection loses the partition into event heads.
 
-These macro-level network properties have profound implications for legal theory. They
-suggest that the common law evolves not through random accretion, but through preferential
-attachment and doctrinal clustering, mirroring the growth of other complex social and
-biological systems. However, while these dyadic models successfully map the global
-architecture of the law, they struggle to capture the micro-level mechanics of judicial
-reasoning. As \citet{sichelman2024network} articulate in their network model of legal
-relations, the dyadic graph representation collapses the rich, polyadic nature of legal
-arguments. Drawing on Hohfeldian analytical jurisprudence, Sichelman and Smith argue
-that legal relations are inherently multi-party and multifaceted. When a court cites three
-cases together to establish a single doctrinal test or to synthesize a new legal rule, those
-three cases interact in a way that is not captured by three independent, pairwise edges. The
-synthesis itself is a higher-order event. This insight parallels findings in other domains of
-legal complexity, such as the structural analysis of the United States Code
-\citep{bommarito2010mathematical,katz2014measuring}, where the hierarchical,
-cross-referencing, and multi-layered structure of statutes demands more sophisticated
-mathematical representations than simple graphs can provide.
+\section{Time-Respecting Hyperlink Prediction}
+\label{sec:task}
 
-\subsection{Legal Hypergraphs and Temporal Dynamics}
+For an observed F-arc $e_t=(u_t,H_t)$, choose $v^\star\in H_t$ and set $H_t^-=H_t\setminus\{v^\star\}$. Let $C_t\subseteq\Vcal_{<t}\setminus H_t^-$ be a temporally admissible candidate set that contains $v^\star$. Temporal directed hyperlink prediction ranks
+\begin{equation}
+s\bigl(u_t,H_t^-\cup\{v\};\Hcal_{<t}\bigr),\qquad v\in C_t.
+\label{eq:score}
+\end{equation}
+The task evaluates whether historical higher-order structure distinguishes the hidden member within a controlled candidate set; it does not ask a model to generate an unrestricted future citation list.
 
-To address the limitations of dyadic graphs in capturing simultaneous, multi-way
-interactions, \citet{coupette2024legal} formalized the concept of ``legal hypergraphs.'' A
-hypergraph generalizes a standard graph by allowing edges (hyperedges) to connect any
-number of nodes, rather than just two. In the context of jurisprudence, a hyperedge can
-naturally represent a citation act that invokes multiple precedents simultaneously. By
-treating the entire bundle of citations as a single hyperedge, we preserve the structural
-integrity of the legal argument. We can analyze whether the cited precedents are drawn from
-the same tightly knit doctrinal cluster or whether they bridge disparate areas of law,
-providing a mathematical proxy for the cognitive act of legal synthesis.
+Figure~\ref{fig:formal} depicts the object and chronological evaluation design. A fixed historical snapshot is used: every graph input, random-walk embedding, and candidate popularity statistic is estimated before the train, validation, and test windows. Consequently, later F-arcs cannot alter a ranking at time $t$.
 
-Furthermore, law is fundamentally dynamic; it is a complex adaptive system that evolves
-in response to societal changes, ideological shifts, and historical events.
-\citet{coupette2024measuring} demonstrated the necessity of incorporating temporal
-dimensions into legal network analysis, tracking how statutes and regulations evolve over
-time. They emphasize that static snapshots of legal networks obscure the dynamic processes
-of amendment, repeal, and jurisprudential drift. Similar temporal dynamics have been
-observed in the formation of precedent at the International Court of Justice, where
-\citet{bellutta2024indicators} used temporal network motifs to track the evolution of
-international legal norms, and in the coalition structures of international climate litigation
-\citep{mastrandrea2024coalitions}.
-
-Understanding judicial behavior also requires acknowledging the temporal and institutional
-constraints under which judges operate. As \citet{lee2024valence} have shown in their work
-on valence and interactions in judicial voting, the ideological composition of the Court and
-the temporal context of a decision profoundly influence legal outcomes. Our framework
-extends these insights by treating citation acts as timestamped events within a directed
-hypergraph. By anchoring each F-arc to the specific date of the decision, we can trace the
-structural evolution of SCOTUS and ECHR arguments over their respective histories, observing how the
-``shape'' of legal reasoning changes across different eras of the courts.
-
-\subsection{Stare Decisis, Doctrinal Clusters, and the Grammar of Legal Argument}
-
-The doctrine of stare decisis---the principle that courts should adhere to prior
-decisions---is the engine that drives the accumulation and interconnection of precedent. It
-is not merely a procedural rule; it is a fundamental epistemological commitment that gives
-the common law its characteristic stability and predictability. From a network perspective,
-stare decisis is the mechanism that generates the preferential attachment dynamics observed
-in legal citation networks: well-established, frequently cited cases attract further citations,
-while obscure or overruled cases fade from the network's periphery.
-
-However, stare decisis is not a rigid rule of mechanical application. It is a flexible doctrine
-that permits courts to distinguish, limit, extend, and occasionally overrule prior decisions.
-These operations correspond to distinct structural patterns in the citation network.
-Distinguishing a precedent involves citing it alongside other cases that define its limits,
-creating a specific structural signature in the F-arc. Extending a precedent involves citing
-it in conjunction with cases from adjacent doctrinal areas, producing high community
-dispersion. Overruling a precedent, while rare at the Supreme Court level, represents a
-structural rupture that can be detected as a sudden drop in a case's in-degree trajectory.
-
-The F-hypergraph framework is uniquely suited to capture these nuances. By treating the
-entire bundle of citations as a single F-arc, we can analyze the relational context in which
-each precedent is invoked. A case cited alongside its traditional doctrinal companions has a
-very different structural meaning than the same case cited alongside cases from a completely
-different area of law. This relational context is precisely what the Legal Argument Space is
-designed to measure and compare. In this sense, our framework provides a computational
-operationalization of the intuition, long held by legal theorists, that the meaning of a
-precedent is not fixed but is determined by the argumentative context in which it is deployed.
-
-The deeper jurisprudential foundation for this insight lies in Wesley Newcomb Hohfeld's
-analytic decomposition of legal relations, first published in 1913 and 1917. Hohfeld
-demonstrated that what lawyers loosely call a ``legal right'' is in fact a cluster of eight
-fundamental jural relations---rights, duties, privileges, no-rights, powers, liabilities,
-immunities, and disabilities---each of which is a relation between two specific legal
-persons with respect to a specific legal act. Hohfeld's framework revealed that legal
-reasoning is irreducibly relational: a legal proposition is not a property of an individual
-but a relation between parties, and the meaning of a legal rule depends on the full
-configuration of jural relations in which it is embedded.
-
-This Hohfeldian insight maps directly onto the F-hypergraph framework. When a judge
-cites a bundle of precedents $H$ in support of a legal proposition, they are not merely
-accumulating independent authorities; they are constructing a specific configuration of
-jural relations. The precedents in $H$ interact with each other---they may establish
-complementary duties, conflicting privileges, or hierarchically ordered powers---and it is
-this configuration, not the individual citations, that constitutes the legal argument.
-Sichelman and Smith's network model of legal relations \citep{sichelman2024network}
-explicitly draws on the Hohfeldian framework to argue for more expressive network
-representations of law. Our F-hypergraph operationalizes this argument: the F-arc
-$(u, H, \tau)$ is the computational representation of a Hohfeldian relational configuration,
-where the head set $H$ encodes the specific bundle of jural relations that the citing opinion
-$u$ is invoking at time $\tau$.
-
-This Hohfeldian perspective also illuminates the distinction between the five structural
-metrics we compute. Closure measures the degree to which the jural relations in $H$ are
-already mutually established---a high-closure argument draws on a bundle of precedents
-that have already defined their relations to each other, constituting a stable doctrinal
-cluster. Brokerage measures the degree to which the argument is constructing new jural
-relations by connecting previously unrelated authorities. Authority concentration measures
-the inequality of jural weight within the bundle---whether the argument is anchored by a
-few dominant precedents or distributes its relational weight evenly. Temporal span measures
-the historical depth of the jural configuration, and community dispersion measures its
-cross-doctrinal breadth. Together, these five metrics provide a Hohfeldian structural
-profile of each legal argument, capturing not just which precedents are cited but how they
-relate to each other and to the legal proposition being advanced.
-
-\subsection{The Jurisprudence of Citation: From Shepard's to Hypergraphs}
-
-The quantitative study of legal citation has a long institutional history. Shepard's
-Citations, first published in 1873 \citep{shepard1873citations}, created the first systematic tool for tracking how cases
-cite each other, enabling lawyers to verify whether a precedent remains good law and to
-find related authorities. This citator tradition established the basic infrastructure of legal
-research and implicitly recognized that the citation network carries important legal
-information.
-
-The academic study of legal citation networks accelerated dramatically with the
-digitization of legal databases in the 1990s and 2000s. \citet{bommarito2009law}
-demonstrated that the SCOTUS citation network exhibits the statistical signatures of a
-complex network, including a power-law distribution of in-degrees (with a small number of
-cases receiving a disproportionate share of citations), a small-world topology (where any
-two cases are connected by a surprisingly short path through the citation network), and a
-modular community structure (where cases cluster into groups corresponding to substantive
-legal domains such as constitutional law, administrative law, and criminal procedure).
-
-These findings have important implications for legal practice and legal theory. The
-power-law distribution of citations implies that the legal landscape is dominated by a small
-number of ``super-precedents'' that anchor vast doctrinal territories. The small-world
-topology implies that legal arguments can bridge seemingly disparate areas of law through
-surprisingly short chains of citation. The modular community structure implies that the law
-is organized into relatively distinct doctrinal domains, though these domains are connected
-by cross-doctrinal bridges.
-
-However, all of these findings are based on dyadic citation networks, which represent only
-the individual citation edges and not the bundles of citations that constitute legal arguments.
-Our F-hypergraph framework builds on this tradition while addressing its fundamental
-limitation. By representing each citation act as an F-arc that connects the citing opinion to
-its entire bundle of cited precedents, we capture the relational structure of legal arguments
-at a level of granularity that dyadic networks cannot achieve. The five structural metrics we
-compute for each F-arc provide a rich, multi-dimensional characterization of each citation
-act that goes far beyond what can be inferred from the individual citation edges alone.
-
-\section{New Observables Enabled by the F-Hypergraph Representation}
-\label{sec:observables}
-
-Before turning to the full structural analysis, we demonstrate that the directed F-hypergraph
-representation immediately enables a class of structural observables that are undefined on
-an ordinary dyadic citation graph $G = (V, E)$ and that are lost in an undirected citation hypergraph. 
-This is the key justification for the representation: it is not cosmetic. It creates genuinely new 
-quantities that carry legal meaning. 
-
-In a standard dyadic graph, a judge's simultaneous citation of ten precedents is fractured into 
-ten independent edges, destroying the relational context—the cognitive act of synthesis is lost. 
-Conversely, while an undirected hypergraph captures the multi-way interaction of cases, it fails 
-to capture the asymmetric flow of time and authority: it cannot distinguish the citing opinion 
-(the tail) from the cited precedents (the head). The directed F-arc $e = (u, H, \tau)$ perfectly 
-preserves both the simultaneous grouping of the precedents and the directed flow of authority 
-from the past to the present.
-
-\subsection{Head Cardinality}
-
-The most immediate new observable is the \emph{head cardinality} $|H|$ of an F-arc
-$e = (u, H, \tau)$: the number of precedents cited simultaneously in a single opinion. In a
-dyadic graph, this information is entirely lost---one can count the out-degree of $u$, but
-there is no way to know which edges were part of the same citation act. The F-hypergraph
-preserves this information exactly.
-
-\begin{figure}[h]
-  \centering
-  \includegraphics[width=0.75\textwidth]{figures/head_cardinality.pdf}
-  \caption{Distribution of F-arc head cardinality $|H|$ across the full SCOTUS corpus.
-  The distribution is right-skewed: 87.3\% of F-arcs cite two or more precedents
-  simultaneously, and the median head size has grown from approximately 2 in the
-  nineteenth century to 10--12 in the modern era. A dyadic citation graph cannot
-  represent this quantity at all.}
-  \label{fig:headcard}
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{fig_temporal_farc_model.pdf}
+\caption{Mathematical formulation and temporal evaluation design. (a) A directed F-arc has a singleton tail $u_t$ and a set-valued head $H_t$; the prediction task hides $v^\star$. (b) The historical F-hypergraph snapshot precedes the train, validation, and test windows.}
+\label{fig:formal}
 \end{figure}
 
-Figure~\ref{fig:headcard} shows the distribution of head cardinality across the 18,091
-timed SCOTUS F-arcs. The distribution is strongly right-skewed: 87.3\% of F-arcs cite two or more
-precedents simultaneously, and the tail extends to opinions citing more than 60 precedents
-in a single decision. The mean head size is 10.55 and the median is 6.0. The ECHR exhibits a 
-strikingly similar distribution (mean 10.0, median 8.0). This immediately
-establishes that the vast majority of SCOTUS and ECHR citation acts are genuinely polyadic events
-that a dyadic model misrepresents by decomposing them into independent edges.
+\subsection{Candidates, split, and ranking}
 
-\subsection{Head Overlap and Recurrent Precedent Bundles}
-
-A second class of new observables concerns the \emph{overlap} between the head sets of
-different F-arcs. Given two F-arcs $e_1 = (u_1, H_1, \tau_1)$ and $e_2 = (u_2, H_2, \tau_2)$,
-the Jaccard overlap $|H_1 \cap H_2| / |H_1 \cup H_2|$ measures the degree to which two
-citation acts draw on the same bundle of precedents. High overlap between F-arcs from
-different eras indicates that a particular bundle of cases has become a stable, recurrent
-argumentative unit---a ``citation formula'' that judges reproduce across decades.
-
-In the full SCOTUS and ECHR corpora, we identify numerous \emph{recurrent precedent bundles}: exact head
-sets $H$ that appear in two or more distinct F-arcs. These bundles represent the most
-stable argumentative formulas in both American constitutional law and European human rights law---groups of cases that are
-routinely cited together as a unit. Their identification is impossible in a dyadic model,
-where the co-citation of two cases is recorded but the joint co-citation of an entire bundle
-is not.
-
-\subsection{Higher-Order Citation Motifs}
-
-A third class of new observables is \emph{higher-order citation motifs}: recurring
-structural patterns in the F-hypergraph that have no counterpart in dyadic graphs.
-Figure~\ref{fig:motifs} shows the four principal motif types we identify.
-
-\begin{figure}[h]
-  \centering
-  \includegraphics[width=0.80\textwidth]{figures/citation_motifs.pdf}
-  \caption{Counts of the four principal higher-order citation motifs in the SCOTUS
-  F-hypergraph. The chain motif (one F-arc's head contains the tail of another) is by
-  far the most common, reflecting the sequential accumulation of precedent. Fan-out
-  (one opinion cited by multiple F-arcs) and fan-in (one F-arc citing a node that is
-  itself the tail of another F-arc) are less common. Convergence (two F-arcs sharing
-  a head node) is rare, indicating that true doctrinal convergence is an exceptional
-  event.}
-  \label{fig:motifs}
-\end{figure}
-
-The dominant motif is the \emph{chain} (241,792 instances): an F-arc whose head contains
-a node that is itself the tail of a later F-arc. This is the computational signature of the
-doctrine of stare decisis---the accumulation of precedent upon precedent. The
-\emph{fan-out} motif (14,116 instances) occurs when a single opinion is cited by multiple
-subsequent F-arcs, indicating a landmark case that anchors multiple later arguments.
-The \emph{fan-in} motif (17,617 instances) occurs when a single F-arc cites a node that
-is itself the tail of a prior F-arc, capturing the phenomenon of citing an opinion that was
-itself a major synthesizing decision. The \emph{convergence} motif (130 instances)---two
-F-arcs sharing a head node---is rare, indicating that true doctrinal convergence (two
-independent lines of argument arriving at the same precedent) is an exceptional event in
-SCOTUS jurisprudence. None of these motifs can be defined, let alone counted, in a dyadic
-citation graph.
-
-\subsection{Structural Profiles}
-
-The fourth and richest class of new observables is the \emph{five-dimensional structural
-profile} of each F-arc, described in detail in Section~\ref{sec:method}. The profile
-captures, for each citation act, the internal density of the cited bundle (closure), the
-degree of doctrinal bridging (brokerage), the inequality of citational authority among the
-cited cases (authority concentration), the historical depth of the argument (temporal span),
-and the cross-doctrinal breadth of the cited bundle (community dispersion). All five
-quantities are properties of the F-arc as a whole---they describe the relational structure
-of the citation bundle---and none of them can be defined for an individual dyadic edge.
-
-Together, these four classes of observables demonstrate that the F-hypergraph
-representation is not a reformulation of existing data in a new notation. It is a
-representation that creates new information: information about the relational structure of
-citation bundles that is erased when those bundles are decomposed into independent dyadic
-edges.
-
-\section{Methodology}
-\label{sec:method}
-
-\subsection{Empirical Corpora: SCOTUS and ECHR}
-
-To ensure that the structural signatures we identify are not artifacts of a single legal system, 
-we analyze two distinct empirical corpora representing fundamentally different institutional designs: 
-the United States Supreme Court (SCOTUS) and the European Court of Human Rights (ECHR).
-
-\textbf{SCOTUS Corpus.} We utilize the Free Law Project's CourtListener database to extract the 
-complete corpus of United States Supreme Court opinions. The raw dataset comprises 29,121 distinct opinions 
-spanning the entire history of the Court from its inception in 1791 through the end of the 
-2023 term (2024). We systematically parse the text of each opinion to extract explicit citations to 
-prior SCOTUS decisions, relying on standardized reporter formats (e.g., U.S., S.Ct., L.Ed.). 
-We cross-reference the extracted citations with Supreme Court metadata to assign a precise 
-decision date to every opinion in the corpus.
-
-\textbf{ECHR Corpus.} As a comparative dataset, we extracted a corpus of 10,000 English-language 
-judgments from the ECHR's HUDOC database, covering decisions issued between 1959 and 2013. 
-The ECHR is an international treaty court applying a ``living instrument'' methodology; it is not 
-formally bound by a strict doctrine of \textit{stare decisis}, though it maintains a \textit{de facto} 
-system of precedent \citep{lupu2018precedent}. We constructed the ECHR citation network by parsing the 
-structured \texttt{scl} (Strasbourg Case Law) field in the HUDOC metadata, which explicitly lists 
-the prior judgments cited by the Court.
-
-\subsection{F-Hypergraph Construction}
-
-To formalize the concept of simultaneous legal synthesis, we model the citation network as
-a directed F-hypergraph \citep{gallo1993directed}. Let $\mathcal{H} = (V, \mathcal{E})$
-denote the legal hypergraph. The vertex set $V$ consists of the 29,121 Supreme Court
-opinions. The hyperedge set $\mathcal{E}$ consists of directed F-arcs. We define an F-arc
-as a tuple $e = (u, H, \tau)$, representing a citation event occurring at a specific time
-$\tau$. Here, $u \in V$ is the citing opinion (the tail of the F-arc), and $H \subset V$ is
-the set of all precedents cited by $u$ (the head of the F-arc). Crucially, we enforce the
-temporal constraint that for all $v \in H$, the decision date of $v$ must strictly precede
-$\tau$, ensuring the acyclic nature of the citation flow.
-
-\begin{figure}[h]
-  \centering
-  \includegraphics[width=0.55\textwidth]{figures/fhypergraph_scotus.pdf}
-  \caption{A directed F-hypergraph representation of a chain of SCOTUS precedential
-  citations in prisoner civil-rights litigation. Each grey or white circle denotes a
-  Supreme Court opinion (tail nodes shaded grey); each filled black circle labelled
-  ``Decision F-arc (\emph{date})'' denotes a citation event---an F-arc $(u, H, \tau)$
-  in which the citing opinion $u$ simultaneously invokes the set $H$ of precedents on
-  the decision date $\tau$. Directed edges from a tail node to its F-arc node represent
-  the citing act; directed edges from the F-arc node to each head node represent the
-  individual citations constituting that act.}
-  \label{fig:fhypergraph}
-\end{figure}
-
-This construction yields 18,091 timed F-arcs (after filtering for valid timestamps and
-requiring $|H| \geq 2$, as singular citations do not constitute a synthesis). The mean head
-size (the number of precedents cited in a single opinion) across the entire corpus is 10.55,
-with a median of 6.0. Figure~\ref{fig:fhypergraph} illustrates a subgraph of this
-representation, visually demonstrating how F-arcs capture the polyadic nature of citation
-acts. Unlike a standard graph, where the citations from $u$ to $H$ would be drawn as
-independent lines, the F-arc explicitly binds them together as a single cognitive and legal
-event.
-
-\subsection{Structural Profiling of Legal Arguments}
-
-To quantify the internal structure of each legal argument, we compute a five-dimensional
-structural profile for every F-arc $e = (u, H, \tau)$. These metrics are calculated based
-on the state of the global citation network $G_\tau = (V_\tau, A_\tau)$ exactly at time
-$\tau$ (immediately before $u$ is added), where $V_\tau$ is the set of all opinions decided
-before $\tau$ and $A_\tau$ is the set of all citation edges between them. This ensures that
-we measure the historical reality as it existed for the authoring judge, without
-forward-looking bias.
-
-\textbf{Closure.} Let $G_H = (H, A_H)$ denote the induced subgraph of $G_\tau$ on the
-head set $H$, where $A_H = \{(v,w) \in A_\tau : v, w \in H\}$ is the set of citation edges
-among the precedents in $H$. We define closure as:
+Let $B_t=\{v\in\Vcal:\tau(v)<t\}$ be the historically available vertex set. A valid candidate rule obeys
 \begin{equation}
-  \mathrm{Closure}(e) = \frac{|A_H|}{|H|(|H|-1)}
+C_t\subseteq B_t\setminus H_t^-,\qquad v^\star\in C_t.
+\label{eq:admissible}
 \end{equation}
-where the denominator is the maximum possible number of directed edges among $|H|$ nodes.
-Closure ranges from 0 (no precedents in $H$ cite each other) to 1 (every precedent cites
-every other). High closure indicates that the judge is drawing upon a tightly knit, stable
-doctrinal area where the relationships between the precedents are well-established.
+This excludes unavailable documents and prevents another positive head member from entering the negative pool. In every experiment, $C_t$ has 20 candidates: the hidden true member, nine non-head nodes with highest historical in-degree, and ten uniformly sampled historical non-head nodes. The mixture creates both popularity-based hard alternatives and ordinary historical alternatives.
 
-\textbf{Brokerage.} We define brokerage as the complement of closure:
+After chronological ordering, $q_{.20}$, $q_{.40}$, $q_{.60}$, and $q_{.80}$ denote the 20\%, 40\%, 60\%, and 80\% indices of the strictly time-valid F-arc sequence. The graph snapshot and all candidate statistics use $\Hcal_{<q_{.20}}$ only. Events in $[q_{.20},q_{.40})$ fit model parameters, those in $[q_{.40},q_{.60})$ select the model, and those in $[q_{.60},q_{.80})$ are held out. For each test event,
 \begin{equation}
-  \mathrm{Brokerage}(e) = 1 - \mathrm{Closure}(e)
+r_t=1+\sum_{v\in C_t\setminus\{v^\star\}}\indicator\!\left\{s(u_t,H_t^-\cup\{v\};\Hcal_{<t})\geq s(u_t,H_t;\Hcal_{<t})\right\}.
+\label{eq:rank}
 \end{equation}
-In practice, we compute brokerage as the fraction of pairs $(v,w) \in H \times H$ for which
-no direct citation edge $(v,w) \in A_\tau$ exists. High brokerage indicates an act of
-doctrinal synthesis, innovation, or the importation of concepts from one area of law into
-another.
+We report Recall@$k$ (the proportion of hidden members ranked in the top $k$), MRR (the average reciprocal rank), mean rank (the average hidden-member position; lower is better), and candidate-row ROC-AUC. We also report F1, precision, recall, accuracy, log-loss, and Matthews correlation coefficient (MCC) after score calibration and threshold selection on the validation window only. Ties are resolved deterministically by candidate identifier for every method.
 
-\textbf{Authority Concentration.} Let $d^-(v, \tau)$ denote the in-degree of opinion $v$
-in $G_\tau$ (the number of times $v$ has been cited by prior opinions). We measure
-authority concentration as the Gini coefficient of the in-degree distribution over the head
-set:
+\begin{algorithm}[t]
+\caption{Fixed-snapshot temporal F-hyperlink ranking}
+\label{alg:protocol}
+\begin{algorithmic}[1]
+\Require Time-respecting F-arcs $\Ecal$; temporal cut points $q_{.20},q_{.40},q_{.60},q_{.80}$
+\State Build $\Hcal_{<q_{.20}}$ and all historical candidate statistics
+\State Initialize node features by Node2Vec on the snapshot clique expansion
+\For{each event $e_t=(u_t,H_t)$ in the later windows}
+  \State deterministically hide $v^\star\in H_t$ and form $H_t^-=H_t\setminus\{v^\star\}$
+  \State form $C_t=\{v^\star\}\cup C_t^{\mathrm{hard}}\cup C_t^{\mathrm{rand}}$, with $|C_t|=20$
+  \State score every candidate F-arc $(u_t,H_t^-\cup\{v\})$, $v\in C_t$
+\EndFor
+\State fit on $[q_{.20},q_{.40})$, select on $[q_{.40},q_{.60})$, and report $[q_{.60},q_{.80})$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Models and Comparative Design}
+\label{sec:models}
+
+\subsection{Candidate-scoring families}
+
+The study evaluates eight methods through one common prediction task $s_m(e_t,v)$, rather than treating any method as a reference. Two variants of the Neural Hypergraph Predictor for directed hypergraphs (NHP-D) are included: NHP-D-mean and NHP-D-maxmin+ \cite{yadati2020nhp}. For each candidate $v\in C_t$, NHP-D receives $(u_t,H_t^-\cup\{v\})$. Node2Vec \cite{grover2016node2vec} initializes vertices from the fixed historical clique expansion, a graph convolution produces node states, and directed tail--head pooling produces hyperlink and direction logits.
+
+Let $X\in\R^{|\Vcal|\times d}$ be the 64-dimensional Node2Vec matrix and $\widetilde A$ the fixed historical clique-expansion adjacency with self-loops. The NHP-D node states are
 \begin{equation}
-  \mathrm{AuthConc}(e) = \frac{\sum_{v \in H}\sum_{w \in H} |d^-(v,\tau) - d^-(w,\tau)|}
-  {2|H|\sum_{v \in H} d^-(v,\tau)}
+Z=\sigma\!\left(\widetilde D^{-1/2}\widetilde A\widetilde D^{-1/2}XW\right),
+\label{eq:gcn}
 \end{equation}
-High concentration indicates that the argument relies heavily on a few highly cited
-``landmark'' cases, surrounded by a constellation of minor, rarely cited cases.
-
-\textbf{Temporal Span.} Let $\mathrm{date}(v)$ denote the decision date of opinion $v$.
-We define temporal span as:
+where $\widetilde D$ is the degree matrix \cite{kipf2017semi}. For a candidate F-arc $(u,H)$, with $\bar z_H=|H|^{-1}\sum_{v\in H}z_v$, the singleton-tail local updates are
 \begin{equation}
-  \mathrm{TempSpan}(e) = \max_{v \in H} \mathrm{date}(v) - \min_{v \in H} \mathrm{date}(v)
+\ell_u=\rho(W_s z_u+W_n\bar z_H),\qquad
+\ell_v=\rho\!\left(W_s z_v+W_n\frac{z_u+\sum_{w\in H\setminus\{v\}}z_w}{|H|}\right).
+\label{eq:local}
 \end{equation}
-measured in years. A large temporal span indicates an argument that draws upon deep
-historical reservoirs of law, connecting founding-era principles with modern jurisprudence.
-
-\textbf{Community Dispersion.} We apply the Louvain community detection algorithm to
-$G_\tau$ to assign each opinion to a community $c(v) \in \{1, \ldots, K_\tau\}$. Let
-$p_k = |\{v \in H : c(v) = k\}|/|H|$ denote the fraction of head nodes assigned to
-community $k$. We define community dispersion as the normalized Shannon entropy of this
-distribution:
+NHP-D-mean uses $\psi_{\mathrm{mean}}=(\ell_u+|H|^{-1}\sum_{v\in H}\ell_v)/2$, while NHP-D-maxmin+ uses $\psi_{\mathrm{maxmin+}}=\rho(\ell_u-\min_{v\in H}\ell_v)$. Both optimize a hyperlink loss plus a weighted direction loss,
 \begin{equation}
-  \mathrm{CommDisp}(e) = -\frac{\sum_{k=1}^{K_\tau} p_k \log p_k}{\log K_\tau}
+\mathcal{L}=\operatorname{BCE}(y,\operatorname{logit}_{\mathrm{hyper}})+0.25\,\operatorname{BCE}(y,\operatorname{logit}_{\mathrm{dir}}).
+\label{eq:nhpd-loss}
 \end{equation}
-High dispersion (close to 1) indicates that the argument spans multiple distinct areas of
-law; low dispersion (close to 0) indicates a doctrinally focused argument within a single
-community.
 
-\subsection{Legal Argument Space Embedding}
+Table~\ref{tab:methods} describes each method at the same level: the historical structure it uses and the candidate-head score it supplies. The first six are published prediction families. HPRA~\cite{kumar2020hpra}, co-citation, and historical in-degree are not weaker versions of the neural models; they provide transparent structural comparisons that answer distinct questions about the value added by nonlinear or directed representation learning.
 
-To identify recurrent typologies of legal synthesis, we project the five-dimensional
-structural profiles into a two-dimensional Legal Argument Space (LAS) using Uniform
-Manifold Approximation and Projection (UMAP) \citep{mcinnes2018umap}. UMAP is a
-non-linear dimensionality reduction technique that preserves both local and global
-structure in the data, making it particularly well-suited for identifying clusters of
-structurally similar citation acts. Unlike principal component analysis, which assumes
-linear relationships between features, UMAP can capture the complex, non-linear manifold
-structure that characterizes the distribution of legal arguments in the five-dimensional
-profile space.
+\begin{table}[t]
+\caption{Methods evaluated on the common evaluation design. Each receives the same frozen event, observed head, and candidate list.}
+\label{tab:methods}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{2.2pt}
+\renewcommand{\arraystretch}{.94}
+\begin{tabular}{@{}L{.20\textwidth}L{.32\textwidth}L{.42\textwidth}@{}}
+\toprule
+Method & Historical representation & Candidate-head score\\
+\midrule
+NHP-D-mean & Clique-expansion GCN with tail--head direction & Mean-pooled local tail/head states \cite{yadati2020nhp}.\\
+NHP-D-maxmin+ & Clique-expansion GCN with tail--head direction & Max--min+ local tail/head pooling \cite{yadati2020nhp}.\\
+Hyper-SAGNN & Historical node embeddings & Diagonal-masked self-attention over $H_t^-\cup\{v\}$ \cite{zhang2020hypersagnn}.\\
+CHESHIRE & Historical head-incidence features & Order-three Chebyshev convolution and max--min plus norm pooling \cite{chen2023cheshire}.\\
+DHGNN & Directed historical F-arc propagation & Directed embeddings and candidate--context dot product \cite{ma2024dhgnn}.\\
+HPRA & Historical head projection & Resource-allocation attachment to $H_t^-$ \cite{kumar2020hpra}.\\
+Co-citation & Historical head projection & Sum of direct head-association weights.\\
+Historical in-degree & Historical head frequencies & $\log(1+\text{head frequency}(v))$.\\
+\bottomrule
+\end{tabular}
+\end{table}
 
-Prior to embedding, we standardize all five profile dimensions to zero mean and unit
-variance to ensure that no single metric dominates the distance calculations. We then apply
-UMAP with parameters \texttt{n\_neighbors}$=30$ and \texttt{min\_dist}$=0.1$, which
-balance the preservation of local neighbourhood structure against global layout. The
-resulting two-dimensional embedding is then clustered using a Gaussian Mixture Model
-(GMM) with the number of components selected by minimizing the Bayesian Information
-Criterion (BIC). This procedure yields six distinct clusters, each corresponding to a
-recognizable typology of legal argumentation.
+\subsection{Common prediction interface and implementation audit}
+
+For every method $m$, the evaluated quantity is the same conditional candidate score,
+\begin{equation}
+s_m(e_t,v)=s_m\bigl(u_t,H_t^-\cup\{v\};\Hcal_{<q_{.20}}\bigr).
+\label{eq:common-score}
+\end{equation}
+Thus the methods differ in their structural map from the same fixed historical state to a candidate score, not in their temporal information, positives, negatives, or test events. The candidate F-arc is never inserted into the historical encoder. For HPRA, $A$ is the historical degree-preserving head projection and $D_v$ its vertex-degree matrix; its attachment score is
+\begin{equation}
+s_{\mathrm{HPRA}}(v\mid H_t^-)=\sum_{w\in H_t^-}\bigl(A+AD_v^{-1}A\bigr)_{vw}.
+\label{eq:hpra}
+\end{equation}
+
+All neural methods are trained on $[q_{.20},q_{.40})$ and selected by validation ranking on $[q_{.40},q_{.60})$. The NHP-D variants are trained anew under this same rule. Published model definitions and publicly available implementations were used to construct conditional adaptations to the common citation-ranking prediction; their differing native data formats are not allowed to change the frozen event or candidate-set specification. Each resulting score file was checked event by event: it contains one positive and 19 negatives, with candidate identifiers identical across methods in every split.
+
+\section{Data and Experimental Design}
+\label{sec:data}
+
+The empirical instances are citation F-hypergraphs derived from Supreme Court of the United States (SCOTUS) opinions and European Court of Human Rights (ECHR) judgments. The SCOTUS corpus covers 1791--2024; ECHR is a 10,000-judgment English-language HUDOC sample covering 1959--2013. Citation networks have been used as longitudinal network data \cite{fowler2007network,lupu2012precedent}; here they are used only as directed higher-order event streams.
+
+\begin{table}[t]
+\caption{Corpus and strict temporal-evaluation characteristics. The final cohort is smaller than the full graph because every head member and every candidate must be historically available under the fixed-snapshot evaluation design.}
+\label{tab:data}
+\centering
+\begin{tabular}{lrr}
+\toprule
+& SCOTUS & ECHR\\
+\midrule
+Citation F-arcs in supplied graph & 24,837 & 18,912\\
+Strictly time-respecting F-arcs with $|H|\geq 2$ & 4,793 & 596\\
+Historical snapshot F-arcs & 958 & 119\\
+Train / validation / test events & 225 / 100 / 61 & 83 / 42 / 42\\
+Held-out candidate rows & 1,220 & 840\\
+Candidates per event & 20 & 20\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+One head member is hidden deterministically per event. Event-level uncertainty is summarized by 2,000 bootstrap resamples. For the binary measures, each method's raw validation scores are standardized, calibrated by a one-variable logistic map, and assigned the threshold that maximizes validation F1; the fitted map and threshold are then applied once to the held-out scores. This leaves the rank order unchanged and makes F1, precision, recall, accuracy, log-loss, and MCC comparable despite different native score scales. The strict design makes each score a controlled temporal benchmark estimate, not a population estimate of all citations. The ECHR test cohort is particularly small; differences there must therefore be interpreted with its uncertainty intervals rather than as definitive method rankings.
+
+\subsection{Fitting configuration}
+
+The frozen evaluation design applies a single candidate construction and a single held-out cohort to all methods. NHP-D uses 64-dimensional Node2Vec features (20-step walks, ten walks per node, $p=q=1$), AdamW optimization, and validation-window early stopping. Hyper-SAGNN, CHESHIRE, and DHGNN share the same historical vertices and candidate head. Each uses the common validation rule. Architecture-specific settings, score calibration, and binary thresholds are selected without inspecting test ranks or test labels. Changing either candidate construction or test-event eligibility would change the empirical question.
+
+\begin{table}[t]
+\caption{Common evaluation contract. The evaluation design is shared by all methods, including the two projection controls.}
+\label{tab:configuration}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}p{.29\textwidth}p{.61\textwidth}@{}}
+\toprule
+Component & Specification\\
+\midrule
+Historical representation & F-arcs strictly before $q_{.20}$; no later F-arc enters a graph-derived feature.\\
+Temporal windows & $[q_{.20},q_{.40})$ train; $[q_{.40},q_{.60})$ validation; $[q_{.60},q_{.80})$ test.\\
+Candidate set & One hidden member, nine high-in-degree non-head candidates, and ten random historical non-head candidates.\\
+Comparison unit & One directed candidate F-arc $(u_t,H_t^-\cup\{v\})$; 20 candidates per event.\\
+Model selection & Validation-window ranking; held-out test window untouched until final scoring.\\
+Uncertainty & 2,000 event-level bootstrap resamples for Recall@1 and MRR.\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Calibration and metric interpretation}
+
+The native scores of the eight methods have different ranges and meanings: some are probabilities, others are logits, similarities, or resource-allocation values. A common binary threshold on those raw scales would not be meaningful. Therefore, for each method $m$ and court separately, the validation scores are standardized and mapped to a probability by
+\begin{equation}
+p_m(y=1\mid s)=\left[1+\exp\left\{-a_m\frac{s-\mu_m}{\sigma_m}-b_m\right\}\right]^{-1},
+\label{eq:calibration}
+\end{equation}
+where $(\mu_m,\sigma_m)$ and $(a_m,b_m)$ are fitted from validation rows only. The binary threshold $\theta_m$ is the validation value that maximizes F1. Equation~\eqref{eq:calibration} and $\theta_m$ are then fixed before the test labels are used.
+
+This calibration does not change a method's within-event rank ordering; Recall@$k$, MRR, mean rank, and ROC-AUC therefore retain their direct ranking interpretation. F1, precision, recall, accuracy, log-loss, and MCC instead assess the calibrated retain-or-reject decision. In the one-positive-to-19-negative candidate design, accuracy alone can be misleading. We consequently report it jointly with F1 and MCC. The F1 definition is
+\begin{equation}
+\mathrm{F1}=\frac{2\mathrm{TP}}{2\mathrm{TP}+\mathrm{FP}+\mathrm{FN}},
+\label{eq:binarymetrics}
+\end{equation}
+and MCC is the correlation of the binary predictions and labels, using all four confusion-matrix cells.
 
 \section{Results}
 \label{sec:results}
 
-\subsection{The Temporal Trajectory of Legal Synthesis}
+The autonomous comparison yields no global winner. On SCOTUS, NHP-D-maxmin+ has the strongest Recall@1 (.410), Recall@5 (.770), MRR (.577), and candidate-row ROC-AUC (.824), whereas CHESHIRE has the strongest Recall@10 (.967). On ECHR, co-citation has the strongest Recall@1 (.214) and MRR (.344), Hyper-SAGNN has the strongest Recall@5 (.548), NHP-D-mean has the strongest Recall@10 (.857, tied with NHP-D-maxmin+ and Hyper-SAGNN), and NHP-D-maxmin+ has the highest ROC-AUC (.714). Table~\ref{tab:rankresults} therefore reports an empirical ordering by corpus and metric rather than assuming that the directed models must prevail.
 
-The historical evolution of the five structural metrics reveals profound, systemic shifts in
-how courts construct legal arguments over time. By aggregating
-the profiles of SCOTUS and ECHR F-arcs by decade, we can trace the macro-level development of American
-jurisprudence alongside the modern evolution of European human rights law.
-
-\begin{figure}[h]
-  \centering
-  \includegraphics[width=0.82\textwidth]{figures/closure_brokerage_combined.pdf}
-  \caption{Dual-axis plot showing the historical evolution of mean closure (blue, left
-  axis) and mean brokerage (red, right axis) per decade. The plot reveals a stark
-  inverse relationship: the founding era was characterized by high brokerage and
-  near-zero closure, a dynamic that inverted around the turn of the twentieth century.}
-  \label{fig:closurebrokerage}
-\end{figure}
-
-As shown in Figure~\ref{fig:closurebrokerage}, the founding era of the Court (roughly 1790
-to 1860) was characterized by near-zero closure and near-perfect brokerage. During this
-period, the corpus of available precedent was small. When early justices cited multiple
-cases, those cases were almost entirely unconnected to one another. The Court was actively
-synthesizing new doctrines, bridging disparate English common law concepts, state court
-decisions, and early federal rulings to build the foundation of American law.
-
-Beginning in the late nineteenth century, this dynamic fundamentally inverted. As the
-sheer volume of published decisions grew, the ``seamless web'' began to weave itself into a
-denser fabric. Closure rose sharply and stabilized between 0.10 and 0.13 throughout the
-twentieth century, while brokerage declined to a lower plateau. This indicates a maturation
-of the legal system: modern opinions increasingly cite dense, self-referential clusters of
-established doctrine. The modern judge rarely needs to bridge entirely unconnected
-concepts; instead, they navigate within heavily litigated, highly structured doctrinal
-domains.
-
-This structural shift toward denser synthesis is accompanied by a massive increase in the
-sheer volume of citations per opinion. Figure~\ref{fig:headsize} demonstrates that while
-early opinions cited very few cases (often fewer than five), modern opinions routinely cite
-dozens. Furthermore, the variance in head size has expanded rapidly; modern jurisprudence
-features both brief, per curiam decisions with few citations and sprawling, multi-part
-landmark opinions that synthesize hundreds of prior cases.
-
-\begin{figure}[h]
-  \centering
-  \includegraphics[width=0.82\textwidth]{figures/head_size_violin.pdf}
-  \caption{Distribution of F-arc head sizes ($|H|$) per decade. The median number of
-  citations per opinion and the variance in citation set size have grown substantially
-  over time, reflecting the increasing complexity and length of modern judicial opinions.}
-  \label{fig:headsize}
-\end{figure}
-
-\begin{figure}[h]
-  \centering
-  \includegraphics[width=\textwidth]{figures/temporal_trajectory_full.pdf}
-  \caption{The temporal evolution of all five structural profile metrics across SCOTUS
-  history (1791--2024). Note the accelerating rise in authority concentration and
-  temporal span in the most recent decades.}
-  \label{fig:trajectory}
-\end{figure}
-
-The full temporal trajectory (Figure~\ref{fig:trajectory}) provides further insights into
-the modern era. Authority Concentration has accelerated dramatically since the late
-twentieth century, reaching its historical peak in the 2010s. This suggests a contemporary
-jurisprudential style that is heavily reliant on canonical ``super-precedents.'' Rather than
-citing a broad, egalitarian array of cases, modern arguments increasingly anchor themselves
-to a few towering decisions (e.g., \textit{Chevron}, \textit{Strickland}, \textit{Roe}),
-supplementing them with minor cases for specific factual analogies. Simultaneously,
-Temporal Span and Community Dispersion have grown steadily. The modern Court draws on
-much deeper historical reservoirs than its predecessors, routinely connecting recent
-decisions with precedents from a century prior, and it synthesizes rules across broader
-doctrinal boundaries.
-
-\begin{figure}[h]
-  \centering
-  \includegraphics[width=0.82\textwidth]{figures/authority_span_decade.pdf}
-  \caption{Dual-axis plot showing the joint evolution of authority concentration (blue,
-  left axis) and temporal span in years (red, right axis) per decade. Both metrics have
-  grown substantially in the modern era, reflecting the Court's increasing reliance on
-  a few canonical super-precedents drawn from across the full span of American legal
-  history.}
-  \label{fig:authspan}
-\end{figure}
-
-Figure~\ref{fig:authspan} isolates the joint evolution of Authority Concentration and
-Temporal Span, the two metrics that have grown most dramatically in the modern era. The
-co-evolution of these two metrics is legally significant. An argument with high authority
-concentration and large temporal span is one that anchors itself to a few towering,
-historically distant precedents---a signature of the kind of ``originalist'' constitutional
-reasoning that has become increasingly prominent in recent decades. An argument with high
-authority concentration but small temporal span, by contrast, relies on a few recent
-super-precedents, suggesting a more ``precedentialist'' approach that emphasizes the
-authority of recent landmark decisions.
-
-The data also reveals several notable historical discontinuities. There is a sharp increase
-in community dispersion in the 1960s, corresponding to the Warren Court's active expansion
-of constitutional rights into new doctrinal domains. There is a notable dip in closure in
-the 1930s, corresponding to the New Deal era when the Court was actively reconsidering its
-prior decisions on the scope of federal power. And there is a sharp increase in temporal
-span beginning in the 1980s, corresponding to the rise of originalism as a constitutional
-methodology under Justices Scalia and Thomas. These correspondences between our
-structural metrics and well-known episodes in constitutional history provide strong
-qualitative validation that the F-hypergraph framework is capturing genuine legal dynamics.
-
-\subsection{Legal Argument Space: Embedding and Clustering}
-
-Figure~\ref{fig:laspca} shows the projection of the 18,091 F-arcs into the LAS, colored
-by their assigned cluster. The six clusters map onto recognizable legal argumentative
-strategies.
-
-\begin{figure}[h]
-  \centering
-  \includegraphics[width=0.72\textwidth]{figures/las_pca.png}
-  \caption{UMAP projection of the Legal Argument Space, colored by cluster assignment.
-  The six distinct clusters represent different structural typologies of legal
-  argumentation.}
-  \label{fig:laspca}
-\end{figure}
-
-Table~\ref{tab:clusters} summarizes the mean structural profile of each cluster. The first
-cluster (``Foundational Synthesis'') is characterized by near-zero closure and near-perfect
-brokerage, with a small head size. This is the dominant typology of the founding era,
-representing the Court's work of building the common law from scratch by bridging
-unconnected concepts. The second cluster (``Doctrinal Consolidation'') exhibits moderate
-closure and moderate brokerage, with a medium head size and low community dispersion.
-This represents the standard, workaday synthesis of established doctrine within a single
-legal domain. The third cluster (``Landmark Synthesis'') is characterized by high authority
-concentration and large head size, with moderate closure. This typology corresponds to
-major constitutional decisions that anchor themselves to a few canonical super-precedents
-while citing a large number of supporting cases. The fourth cluster (``Cross-Doctrinal
-Bridging'') is defined by high community dispersion and high brokerage, representing
-opinions that synthesize rules from multiple distinct doctrinal areas. The fifth cluster
-(``Deep Historical Synthesis'') has the largest temporal span, connecting founding-era
-principles with modern jurisprudence. The sixth cluster (``Routine Application'') has the
-smallest head size and the lowest structural complexity, representing per curiam decisions
-and routine applications of well-settled law.
-
-\begin{table}[h]
-  \centering
-  \caption{Mean structural profiles of the six Legal Argument Space typologies.}
-  \label{tab:clusters}
-  \begin{tabular}{lrrrrr}
-    \toprule
-    Typology & Closure & Brokerage & Auth.\ Conc. & Temp.\ Span & Comm.\ Disp. \\
-    \midrule
-    Foundational Synthesis   & 0.01 & 0.97 & 0.12 & 12.3 & 0.21 \\
-    Doctrinal Consolidation  & 0.11 & 0.74 & 0.31 & 28.7 & 0.38 \\
-    Landmark Synthesis       & 0.09 & 0.68 & 0.72 & 41.2 & 0.55 \\
-    Cross-Doctrinal Bridging & 0.07 & 0.81 & 0.28 & 35.4 & 0.79 \\
-    Deep Historical Synthesis& 0.12 & 0.65 & 0.44 & 68.9 & 0.61 \\
-    Routine Application      & 0.08 & 0.71 & 0.19 & 18.1 & 0.29 \\
-    \bottomrule
-  \end{tabular}
+\begin{table}[t]
+\caption{Autonomous chronological ranking evaluation on identical 20-candidate test lists. Boldface marks the best result within a court and column.}
+\label{tab:rankresults}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{2.6pt}
+\renewcommand{\arraystretch}{.94}
+\begin{tabular}{llrrrrr}
+\toprule
+Court & Method & R@1 & R@5 & R@10 & MRR & AUC\\
+\midrule
+\multirow{8}{*}{SCOTUS}
+& Historical in-degree & .000 & .000 & .230 & .078 & .324\\
+& Co-citation & .295 & .377 & .656 & .385 & .665\\
+& HPRA & .295 & .393 & .639 & .383 & .665\\
+& DHGNN & .328 & .689 & .738 & .480 & .767\\
+& Hyper-SAGNN & .344 & .738 & .951 & .530 & .798\\
+& CHESHIRE & .361 & .754 & \textbf{.967} & .522 & .820\\
+& NHP-D-mean & .311 & .754 & .934 & .505 & .785\\
+& NHP-D-maxmin+ & \textbf{.410} & \textbf{.770} & .951 & \textbf{.577} & \textbf{.824}\\
+\midrule
+\multirow{8}{*}{ECHR}
+& Historical in-degree & .000 & .190 & .333 & .128 & .378\\
+& Co-citation & \textbf{.214} & .476 & .667 & \textbf{.344} & .689\\
+& HPRA & .190 & .476 & .667 & .324 & .643\\
+& DHGNN & .095 & .476 & .786 & .273 & .691\\
+& Hyper-SAGNN & .119 & \textbf{.548} & \textbf{.857} & .308 & .699\\
+& CHESHIRE & .095 & .286 & .643 & .230 & .591\\
+& NHP-D-mean & .095 & .524 & \textbf{.857} & .302 & .709\\
+& NHP-D-maxmin+ & .167 & .476 & \textbf{.857} & .323 & \textbf{.714}\\
+\bottomrule
+\end{tabular}
 \end{table}
 
-\begin{figure}[h]
-  \centering
-  \includegraphics[width=0.82\textwidth]{figures/cluster_fraction_decade.pdf}
-  \caption{Typology mix of legal synthesis per decade, showing the fraction of F-arcs
-  assigned to each cluster. The chart illustrates the diversification of argumentative
-  styles over time.}
-  \label{fig:clusterfrac}
+Table~\ref{tab:classification} gives the requested binary evaluation. The validation-fitted thresholds test whether a candidate should be retained; this differs from its relative rank within an event. On SCOTUS, HPRA and co-citation have the highest F1 (.409) and MCC (.409), while NHP-D-maxmin+ has the smallest log-loss (.167). On ECHR, NHP-D-mean has the highest F1 (.161), while co-citation has the strongest precision (.308), accuracy (.944), and MCC (.148). These distinctions reinforce the need to report several measures.
+
+\begin{table}[t]
+\caption{Validation-calibrated binary test metrics on the same candidate rows. Thresholds maximize validation F1; lower log-loss is better.}
+\label{tab:classification}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{1.45pt}
+\renewcommand{\arraystretch}{.89}
+\begin{tabular}{llrrrrrrr}
+\toprule
+Court & Method & F1 & Prec. & Rec. & Acc. & AUC & Loss & MCC\\
+\midrule
+\multirow{8}{*}{SCOTUS}
+& Historical in-degree & .166 & .091 & \textbf{1.000} & .499 & .676 & .186 & .207\\
+& Co-citation & \textbf{.409} & .594 & .311 & \textbf{.955} & .665 & .177 & \textbf{.409}\\
+& HPRA & \textbf{.409} & .594 & .311 & \textbf{.955} & .665 & .177 & \textbf{.409}\\
+& DHGNN & .263 & \textbf{.667} & .164 & .954 & .767 & .177 & .316\\
+& Hyper-SAGNN & .330 & .405 & .279 & .943 & .798 & .172 & .307\\
+& CHESHIRE & .299 & .500 & .213 & .950 & .820 & .174 & .305\\
+& NHP-D-mean & .291 & .327 & .262 & .936 & .785 & .175 & .260\\
+& NHP-D-maxmin+ & .265 & .500 & .180 & .950 & \textbf{.824} & \textbf{.167} & .280\\
+\midrule
+\multirow{8}{*}{ECHR}
+& Historical in-degree & .127 & .070 & \textbf{.762} & .479 & .622 & .194 & .099\\
+& Co-citation & .145 & \textbf{.308} & .095 & \textbf{.944} & .689 & .192 & \textbf{.148}\\
+& HPRA & .143 & .286 & .095 & .943 & .643 & .193 & .141\\
+& DHGNN & .151 & .086 & .619 & .651 & .691 & .188 & .123\\
+& Hyper-SAGNN & .132 & .088 & .262 & .827 & .699 & .190 & .073\\
+& CHESHIRE & .062 & .055 & .071 & .892 & .591 & .196 & .006\\
+& NHP-D-mean & \textbf{.161} & .094 & .571 & .702 & .709 & .185 & .133\\
+& NHP-D-maxmin+ & .158 & .099 & .381 & .796 & \textbf{.714} & \textbf{.184} & .110\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Figure~\ref{fig:comparators} displays MRR with 95\% event-bootstrap intervals. It visualizes the principal ranking result without privileging a method a priori: SCOTUS favors NHP-D-maxmin+ on MRR, whereas the ECHR intervals are broad and overlap substantially. In conjunction with Tables~\ref{tab:rankresults}--\ref{tab:classification}, this is evidence for context-dependent comparative performance, not universal superiority.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=.82\textwidth]{fig_comparator_mrr.pdf}
+\caption{Held-out MRR with 95\% event-bootstrap intervals for all methods. Every score ranks the same hidden member against the same 19 negative candidates per event.}
+\label{fig:comparators}
 \end{figure}
 
-Figure~\ref{fig:clusterfrac} illustrates how the prevalence of these typologies has shifted
-over time. The early Court was overwhelmingly dominated by the Foundational Synthesis
-typology. In contrast, the modern Court exhibits a pluralistic mix of synthesis typologies,
-with Doctrinal Consolidation and Landmark Synthesis becoming increasingly prevalent from
-the mid-twentieth century onward. The Cross-Doctrinal Bridging typology shows a notable
-spike in the 1960s and 1970s, corresponding to the Warren and Burger Court eras, when the
-Supreme Court was actively extending constitutional protections into new domains and
-synthesizing rules across civil rights, criminal procedure, and First Amendment law. The
-Deep Historical Synthesis typology has grown steadily throughout the twentieth century,
-reflecting the Court's increasing tendency to ground modern constitutional decisions in
-founding-era history and tradition.
+\FloatBarrier
 
-\subsection{Validation: Missing Precedent Prediction}
+\section{Validity Conditions and Limitations}
+\label{sec:validity}
 
-To rigorously validate that the F-hypergraph structural profiles capture legally meaningful
-information, we designed a ``Missing Precedent'' prediction task. This task tests whether
-the internal structure of an argument is predictive of its constituent parts.
+The benchmark measures conditional ranking, not unrestricted generation of a future head. The partial head $H_t^-$ is observed by construction and the model selects the hidden member from a finite historical candidate set. The design is valid only when three conditions hold: temporal validity requires~\eqref{eq:temporal}; representation validity requires that graph-derived inputs use only the fixed historical snapshot; and event validity requires that candidate $v$ be evaluated in the displayed F-arc $(u_t,H_t^-\cup\{v\})$ rather than as a projected pair in isolation.
 
-For a given historical F-arc $e = (u, H, \tau)$, we randomly remove one precedent
-$v \in H$, leaving a partial bundle $H \setminus \{v\}$. We then task a machine learning
-model with identifying the missing precedent $v$ from a pool of 100 candidates (the true
-$v$ plus 99 negative samples drawn from the set of all available precedents at time $\tau$).
-We train a Random Forest classifier using the structural profile of the F-arc (calculated
-with the candidate node temporarily inserted) to predict the missing node. We compare this
-against a strong baseline that simply guesses the candidate with the highest historical
-in-degree (i.e., the most globally popular case at time $\tau$).
-
-\begin{figure}[h]
-  \centering
-  \includegraphics[width=0.72\textwidth]{figures/validation_topk.png}
-  \caption{Recall@$K$ for the Missing Precedent task. The structural profile model (blue)
-  dramatically outperforms the in-degree baseline (orange), proving that polyadic
-  structure is highly predictive of legal relevance.}
-  \label{fig:validation}
-\end{figure}
-
-As shown in Figure~\ref{fig:validation}, the structural profile model achieves
-extraordinary predictive accuracy. It correctly identifies the exact missing precedent as
-its top prediction (Recall@1) in 93.8\% of cases, and achieves an ROC-AUC of 0.994. In
-stark contrast, the in-degree baseline achieves a Recall@1 of only 1.8\% and an ROC-AUC
-of 0.786.
-
-This result is profoundly important for computational jurisprudence. It confirms that the
-polyadic structure of an argument---how the precedents relate to each other within the
-specific context of the citing opinion---is highly predictive of which specific cases belong
-in the bundle. Global popularity (in-degree) is a poor proxy for local, contextual
-relevance. The F-hypergraph representation successfully captures the ``grammar'' of legal
-synthesis.
-
-The magnitude of the performance gap deserves emphasis. The in-degree baseline represents
-the best possible single-feature heuristic available to a dyadic network model: it simply
-recommends the most globally prominent cases as the most likely citations. This is a strong
-baseline in the sense that prominent cases are indeed cited frequently. Yet it achieves a
-Recall@1 of only 1.8\%, barely above the random chance baseline of 1\% for a pool of 100
-candidates. The structural profile model, by contrast, achieves a Recall@1 of
-93.8\%---a 52-fold improvement, quantifying the predictive power of relational context.
-
-The ROC-AUC of 0.994 further confirms that the structural profiles provide an almost
-perfect ranking of candidates by their probability of belonging to the citation bundle. This
-suggests that the five-dimensional structural profile effectively encodes the ``shape'' of a
-legal argument in a way that is highly discriminative. Two citation bundles that are
-structurally similar---similar closure, brokerage, authority concentration, temporal span,
-and community dispersion---are likely to contain similar cases. This is the computational
-operationalization of the intuition that legal arguments have recognizable structural
-patterns, and that these patterns constrain which precedents are appropriate to cite.
-
-We also note that the validation task is conservative in an important sense: the negative
-samples are drawn from the full set of available precedents at time $\tau$, which includes
-many cases that are topically related to the citing opinion. The structural profile model
-must therefore distinguish the true missing precedent not just from random cases, but from
-a pool of plausible candidates. The fact that it achieves near-perfect performance under
-these conditions suggests that the structural profiles are capturing genuine legal relevance,
-not merely superficial topical similarity.
-
-\section{Comparative Analysis: SCOTUS and ECHR}
-\label{sec:echr_comparison}
-
-Having introduced the ECHR corpus in Section~\ref{sec:method}, we now apply the F-hypergraph framework to compare its structural signatures against the SCOTUS baseline. The resulting ECHR F-hypergraph comprises 10,000 opinion nodes and 10,608 directed citation edges. We identify 1,057 valid F-arcs. A representative example of an ECHR F-arc is shown in Figure~\ref{fig:echr_fhypergraph}, illustrating the chain of precedent from \textit{MGN Limited v.\ UK} (2011) to \textit{Krone Verlag GmbH v.\ Austria} (2012), which in turn synthesizes a bundle of six foundational press-freedom and defamation cases.
-
-\begin{figure}[h]
-  \centering
-  \includegraphics[width=0.82\textwidth]{figures/fhypergraph_echr.pdf}
-  \caption{A representative F-hypergraph chain from the European Court of Human Rights. \textit{Krone Verlag GmbH v.\ Austria} (2012) acts as a structural hub, synthesizing six prior press-freedom judgments into a coherent legal standard, which is subsequently invoked by \textit{MGN Limited v.\ UK} (2011).}
-  \label{fig:echr_fhypergraph}
-\end{figure}
-
-\subsection{Comparative Structural Statistics}
-
-Table~\ref{tab:scotus_echr_comparison} and Figure~\ref{fig:comparison_metrics} present a side-by-side comparison of the structural profiles of the SCOTUS and ECHR F-hypergraphs. 
-
-\input{comparison_table.tex}
-
-\begin{figure}[h]
-  \centering
-  \includegraphics[width=0.98\textwidth]{figures/comparison_metrics.pdf}
-  \caption{Comparative structural metrics of the SCOTUS and ECHR F-hypergraphs. (A) Head cardinality distribution. (B) Closure distribution. (C) Brokerage distribution. (D) Authority concentration (in-degree CCDF).}
-  \label{fig:comparison_metrics}
-\end{figure}
-
-The comparison reveals both striking similarities and profound differences in the structure of legal synthesis between the two courts:
-
-\textbf{1. Universal Cognitive Capacity (Head Cardinality):} The distribution of head cardinality (Figure~\ref{fig:comparison_metrics}A) is remarkably similar across both courts. The median head size for both SCOTUS and the ECHR is exactly 8, and the means are nearly identical (9.5 vs.\ 10.0). This suggests that the cognitive capacity of judges to synthesize multiple precedents simultaneously is a universal human constraint, independent of the legal system. A legal argument typically requires synthesizing between 5 and 15 authorities, regardless of whether the judge is interpreting the US Constitution or the European Convention on Human Rights.
-
-\textbf{2. Higher Closure in International Law:} The ECHR exhibits significantly higher mean closure (0.112) than SCOTUS (0.084) (Figure~\ref{fig:comparison_metrics}B). In the ECHR, when a judgment cites a bundle of precedents, those precedents are much more likely to have already cited each other. This reflects the ECHR's tendency to rely on tightly knit clusters of established ``Grand Chamber'' jurisprudence, repeatedly invoking the same interconnected set of canonical cases to legitimize its rulings across different national contexts.
-
-\textbf{3. Lower Brokerage in the ECHR:} Conversely, the ECHR exhibits lower mean brokerage (0.571) compared to SCOTUS (0.623) (Figure~\ref{fig:comparison_metrics}C). The ECHR engages in less ``Foundational Synthesis''---bridging previously unconnected legal domains---than the American Supreme Court. This is consistent with the ECHR's specialized jurisdiction: while SCOTUS must navigate a vast, multi-domain common-law landscape (ranging from antitrust to criminal procedure), the ECHR operates within the more bounded domain of human rights law, leading to denser, more self-referential citation patterns.
-
-\textbf{4. The Common Law Authority Hierarchy:} The most dramatic difference between the two systems lies in the concentration of authority (Figure~\ref{fig:comparison_metrics}D). The SCOTUS network exhibits a heavy-tailed, scale-free in-degree distribution, with canonical ``super-precedents'' accumulating hundreds of citations. The ECHR network, while exhibiting some concentration, is far flatter. The maximum in-degree in the ECHR sample is 285 (\textit{Ermakov v.\ Russia}), compared to over 500 for the most cited SCOTUS cases, and the mean in-degree is vastly lower (1.1 vs.\ 7.4). 
-
-This stark difference in authority concentration highlights the structural signature of \textit{stare decisis}. In the American common-law system, landmark precedents serve as mandatory, load-bearing pillars of the legal architecture, cited repeatedly across decades. In the ECHR, while precedent is respected, the court is more likely to cite recent, factually analogous chamber judgments rather than continually returning to a small set of ancient, foundational anchors. 
-
-In summary, the comparative analysis demonstrates that while the local ``grammar'' of legal synthesis (head cardinality) is remarkably consistent across jurisdictions, the global topology of the resulting hypergraphs is profoundly shaped by institutional design. The strict doctrine of \textit{stare decisis} and the broad jurisdiction of the American Supreme Court produce a highly brokered, highly concentrated legal architecture, whereas the specialized, treaty-based jurisdiction of the ECHR produces a denser, more egalitarian, and highly closed network of jurisprudence.
+The comparison has corresponding limits. Strict temporal eligibility leaves 61 SCOTUS and 42 ECHR test events, and the 20-candidate pool is sampled rather than exhaustive. Models with a head-only candidate architecture are evaluated on the displayed head; NHP-D and DHGNN additionally use directed historical roles. The implementations are documented conditional adaptations of published architectures to one citation-ranking prediction. A rolling snapshot could instead update representations after each event, but would introduce online retraining and candidate-refresh choices outside the present controlled comparison.
 
 \section{Discussion and Conclusion}
-\label{sec:discussion}
 
-\subsection{The Structure of Legal Synthesis: A Historical Narrative}
+Temporal directed F-hypergraph hyperlink prediction is well-defined only after the event boundary, historical candidate universe, hiding rule, and time-respecting feature construction are specified. The unique-tail proposition clarifies that a citation-list F-hypergraph need not add raw information beyond a complete adjacency list; its contribution is to preserve the set-valued event on which the prediction question is conditioned.
 
-By modeling the SCOTUS and ECHR citation networks as directed F-hypergraphs, we move beyond the
-limitations of dyadic graphs to capture the simultaneous, polyadic nature of legal synthesis.
-This framework provides a mathematically rigorous representation of the cognitive act of
-judicial reasoning, where precedents are invoked not as isolated nodes, but as
-interconnected bundles that form coherent legal arguments.
+The comparative results establish a method-dependent empirical ordering rather than a preassigned winner. On SCOTUS, NHP-D-maxmin+ leads the principal ranking measures, while CHESHIRE leads Recall@10 and the projection methods lead some calibrated binary measures. On ECHR, co-citation leads Recall@1 and MRR, Hyper-SAGNN leads Recall@5, NHP-D-mean shares the best Recall@10 and has the best F1, and NHP-D-maxmin+ has the best ROC-AUC and log-loss. Thus, the contribution is an autonomous, reproducible temporal task and a comparative result showing how directed, set-aware, spectral, and projected representations behave on the same event-level question.
 
-Our empirical analysis provides quantitative evidence for the maturation of the ``seamless
-web'' of American law, alongside a comparative structural signature for European human rights law. In SCOTUS, we observe a clear historical transition from the sparse, highly
-brokered argumentation of the founding era to the dense, highly clustered, and
-authority-concentrated synthesis of the modern Court. The ECHR comparison reveals that while the cognitive bounds of legal synthesis are universal, the resulting global topologies differ profoundly: the ECHR maintains higher closure and vastly lower authority concentration than SCOTUS. The early justices were architects,
-bridging unconnected concepts to build the foundation of the common law; modern justices
-are navigators, operating within a dense, self-referential, and highly structured doctrinal
-landscape.
-
-This narrative is consistent with the broader literature on the development of the American
-legal system. The late nineteenth century, which our data identifies as the inflection point
-in the closure-brokerage transition, corresponds precisely to the period when the Supreme
-Court began to develop a more systematic, formalist approach to legal reasoning. The rise
-of legal formalism under figures such as Christopher Columbus Langdell at Harvard Law
-School, and the corresponding emphasis on the internal coherence and logical structure of
-legal doctrine, would naturally produce the kind of denser, more self-referential citation
-patterns that we observe. Our data thus provides, for the first time, a quantitative
-signature of the formalist turn in American jurisprudence.
-
-The acceleration of authority concentration in the late twentieth century SCOTUS is equally
-revealing. This period corresponds to the rise of the ``super-precedent'' as a concept in
-American constitutional theory---the idea that certain landmark decisions (\textit{Brown v.\ Board
-of Education}, \textit{Roe v.\ Wade}, \textit{Miranda v.\ Arizona}) have become so deeply
-embedded in the legal fabric that they function as quasi-constitutional anchors, cited in
-virtually every argument touching their doctrinal domain. Our data quantifies this
-phenomenon: the Gini coefficient of in-degree among cited SCOTUS cases has risen sharply,
-indicating an increasingly unequal distribution of citational authority, a dynamic notably absent in the flatter, more egalitarian ECHR network.
-
-\subsection{Implications for Legal Theory}
-
-The Legal Argument Space framework offers a powerful new lens for legal theory. The
-concept of distinct ``typologies'' of legal synthesis---the idea that there are recurrent,
-structurally distinct patterns of judicial argumentation---has important implications for our
-understanding of how law develops. If the structure of legal arguments can be classified
-into a finite set of types, this suggests that judicial reasoning, despite its apparent
-diversity, operates according to a limited grammar of argumentative moves.
-
-This insight connects to longstanding debates in jurisprudence about the nature of legal
-reasoning. Formalists have argued that legal reasoning is essentially deductive, proceeding
-from established rules to determinate conclusions. Realists have countered that legal
-reasoning is fundamentally indeterminate, driven by policy preferences and ideological
-commitments rather than logical necessity. Our framework suggests a third possibility: that
-legal reasoning is neither purely deductive nor purely indeterminate, but is constrained by
-the structural configuration of the available precedent. The shape of the citation
-bundle---its closure, brokerage, authority concentration, temporal span, and community
-dispersion---creates a structural ``grammar'' that channels and constrains the range of
-possible legal arguments, even if it does not fully determine the outcome.
-
-The identification of six distinct typologies of legal synthesis also has implications for
-the theory of precedent. The traditional doctrine of stare decisis treats precedent as a
-binary concept: a case is either binding or it is not. But our typological analysis suggests
-that the relationship between a citing opinion and its precedents is far more nuanced. A
-``Foundational Synthesis'' F-arc relates to its precedents in a fundamentally different way
-than a ``Doctrinal Consolidation'' F-arc: the former is bridging unconnected concepts,
-while the latter is reinforcing an established doctrinal cluster. These are qualitatively
-different acts of legal reasoning, and a theory of precedent that treats them as equivalent
-loses important structural information.
-
-More broadly, the six typologies illuminate a longstanding debate in jurisprudence between
-legal formalism, legal realism, and what we might call legal structuralism. Legal formalists
-hold that judicial decisions are determined by the logical application of pre-existing rules;
-legal realists counter that decisions are driven by policy preferences and ideological
-commitments that the formal legal reasoning merely rationalizes after the fact. Our
-framework suggests a third position: that judicial reasoning is constrained by the structural
-configuration of available precedent in ways that are neither purely logical nor purely
-ideological, but are instead a function of the relational geometry of the citation network at
-the moment of decision.
-
-Consider the ``Foundational Synthesis'' typology, which dominates the founding era. In
-this typology, high brokerage and near-zero closure indicate that the Court is drawing on
-precedents that have no prior citation relationship with each other. This is not a situation
-in which the judge can simply apply a pre-existing rule; there is no established doctrinal
-cluster to draw upon. Nor is it a situation in which ideological preferences can freely
-determine the outcome; the structural constraint is that the judge must construct a new
-doctrinal bridge between unconnected authorities, and the available building materials are
-limited by the existing network. The ``Doctrinal Consolidation'' typology, by contrast,
-represents a situation of high structural determinacy: the judge is operating within a dense,
-self-referential cluster of precedents where the available argumentative moves are heavily
-constrained by the existing network structure.
-
-This structural perspective also sheds new light on the phenomenon of judicial overruling.
-When the Court overrules a precedent---as it did in \textit{Dobbs v.\ Jackson Women's
-Health Organization} (2022), overruling \textit{Roe v.\ Wade}---the structural signature
-should be visible as a sudden shift in the typology of subsequent F-arcs that previously
-anchored themselves to the overruled case. A case that was a hub of high-authority-concentration
-F-arcs suddenly loses its structural role, and the arguments that previously relied on it
-must be reconstructed using alternative precedents. The F-hypergraph framework provides
-the tools to detect and measure these structural ruptures in a way that dyadic models cannot,
-opening a new avenue for the computational study of legal change.
-
-Furthermore, the temporal trajectory of the typology mix has implications for the theory
-of constitutional interpretation. The growing prevalence of the ``Deep Historical
-Synthesis'' typology in the modern SCOTUS era---characterized by large temporal spans that connect
-founding-era decisions with contemporary jurisprudence---is consistent with the rise of
-originalism as a constitutional methodology. Originalist judges, who seek to interpret the
-Constitution according to its original public meaning, are more likely to cite founding-era
-precedents alongside modern cases, producing exactly the kind of large temporal spans that
-characterize this typology. Our SCOTUS data thus provides a quantitative signature of the
-originalist turn in American constitutional law, while the ECHR network provides a contrasting model of ``living instrument'' jurisprudence that relies far less on deep historical spanning.
-
-\subsection{Implications for Legal Technology}
-
-The exceptional performance of the structural profiles on the missing precedent task has
-direct implications for the design of legal technology tools. Current legal research
-platforms (Westlaw, LexisNexis, Google Scholar) rely primarily on keyword search and
-dyadic citation analysis to recommend relevant precedents. Our results suggest that these
-tools are leaving significant predictive power on the table. By incorporating
-hypergraph-based structural profiling, a next-generation legal research tool could recommend
-precedents that fit not just the topic of the user's argument, but its specific structural
-shape---the particular combination of doctrinal density, brokerage, authority concentration,
-and temporal reach that characterizes the user's legal argument.
-
-Similarly, in the growing field of legal analytics and RegTech, the ability to characterize
-the structural profile of a regulatory argument could be valuable for compliance analysis,
-risk assessment, and policy evaluation. A regulatory argument that exhibits high brokerage
-across multiple legal domains may be more vulnerable to challenge than one that draws on a
-dense, well-established doctrinal cluster.
-
-\subsection{Limitations and Future Directions}
-
-Several important limitations of the present study should be acknowledged. First, while we have provided a comparative baseline using the ECHR, our
-American analysis is restricted to the Supreme Court of the United States, which represents only the
-apex of the American judicial hierarchy, and our European analysis is restricted to the Grand Chamber and major Chamber judgments of the ECHR. The dynamics of legal synthesis in the lower
-federal courts, where the vast majority of American litigation is resolved, may differ
-substantially. The Courts of Appeals, in particular, are bound by SCOTUS precedent but
-also develop their own circuit-specific doctrines, creating a multi-level citation ecology
-that a hypergraph framework could illuminate. Future work should extend this framework to
-the Courts of Appeals and the District Courts, enabling a multi-level analysis of how legal
-arguments evolve as they move through the judicial hierarchy and how circuit splits emerge
-and are resolved.
-
-Second, our corpus is currently limited to opinions for which precise decision dates could
-be extracted from the CourtListener database. Approximately 8,966 opinions in the raw
-corpus lack complete metadata, and our analysis is based on the 18,091 F-arcs for which
-full temporal information is available. As metadata quality improves through ongoing
-digitization efforts by the Free Law Project and other organizations, the scope of the
-analysis will expand. The backfill of missing metadata is an ongoing process, and future
-versions of this analysis will incorporate the full corpus of 29,121 opinions.
-
-Third, our structural profiling metrics, while capturing important aspects of the structure
-of legal arguments, do not incorporate the textual content of the opinions. A richer
-analysis would combine structural and semantic features, using specialized legal NLP tools
-to extract the substantive legal content of each opinion and integrate it with the
-hypergraph structure. The combination of structural and semantic features could yield more
-powerful predictive models for legal research assistance and could enable more nuanced
-typological classifications.
-
-Fourth, the cluster typologies identified in the Legal Argument Space are based on
-unsupervised clustering and require expert legal interpretation to assign meaningful labels.
-While we have proposed interpretations for each cluster based on their structural profiles,
-these interpretations should be validated through qualitative analysis by legal scholars with
-domain expertise. A mixed-methods approach, combining computational analysis with
-qualitative case studies of representative F-arcs from each cluster, would provide a more
-robust validation of the typological framework.
-
-Fifth, the present analysis treats all F-arcs as structurally equivalent, regardless of the
-substantive legal domain in which they arise. A domain-stratified analysis---comparing the
-structural profiles of constitutional law F-arcs with those of administrative law or criminal
-procedure F-arcs---could reveal important domain-specific patterns in legal argumentation.
-Such an analysis would require a reliable classification of opinions by substantive legal
-domain, which could be achieved through a combination of metadata (e.g., the Supreme Court
-Database's issue area codes) and text classification.
-
-Future work will extend this framework in several directions. The most natural extension
-is to statutory cross-references \citep{bommarito2010mathematical}, where legislative
-hypergraphs could reveal the hidden structure of the United States Code and illuminate how
-statutory law and case law co-evolve. While our ECHR analysis provides a first step in this direction, applying this methodology to 
-other international tribunals \citep{bellutta2024indicators} and comparative constitutional courts 
-could further illuminate the universal structural properties of legal reasoning across different 
-jurisdictions.
-
-A further extension concerns the lower federal courts. The Courts of Appeals and District
-Courts generate the vast majority of American federal litigation, and their citation practices
-are shaped by a multi-level hierarchy in which SCOTUS precedent is binding but circuit
-precedent is also authoritative. The F-hypergraph framework could illuminate how legal
-arguments are transformed as they move through the judicial hierarchy---how the structural
-profiles of District Court arguments differ from those of the Courts of Appeals, and how
-both differ from the SCOTUS arguments that ultimately resolve circuit splits. Such a
-multi-level analysis would require the same pipeline applied to the much larger CourtListener
-corpus of all federal court opinions, which contains more than 1.5 million documents.
-
-\subsection{Conclusion}
-
-This paper has introduced a directed F-hypergraph framework for the computational
-representation and analysis of legal citation networks, and applied it to the full corpus of
-United States Supreme Court opinions spanning more than two centuries, with a comparative application to the European Court of Human Rights. The central
-contribution is representational: by treating each citation act as a directed F-arc that
-binds a citing opinion to its entire bundle of simultaneously cited precedents, we create a
-computational representation that preserves the polyadic structure of judicial reasoning.
-This representation immediately enables new structural observables---head cardinality,
-head overlap, recurrent precedent bundles, higher-order citation motifs, and
-five-dimensional structural profiles---that capture the polyadic geometry of legal arguments.
-
-The temporal trajectory of the structural profiles reveals coherent historical narratives:
-in SCOTUS, a long-term transition from the high-brokerage, low-closure argumentation of the founding
-era to the denser, more self-referential synthesis of the modern Court, with an accelerating
-concentration of authority around canonical super-precedents; in the ECHR, a sustained reliance on highly closed, egalitarian precedent bundles. These trajectories map onto well-known episodes in American
-constitutional history and European human rights law, providing qualitative validation of the framework.
-
-The Legal Argument Space embedding yields six distinct typologies of legal synthesis, whose
-relative prevalence has shifted dramatically over the history of the courts. The exceptional
-performance of the structural profiles on the missing precedent prediction task across both corpora---Recall@1
-of 93.8\% versus 1.8\% for the in-degree baseline---confirms that the F-hypergraph
-representation captures genuine legal relevance that is invisible to dyadic models. Together,
-these results demonstrate that the directed F-hypergraph is not merely a mathematical
-abstraction but a computationally tractable and empirically validated representation of how
-law is actually made.
-
-\section*{Data and Code Availability}
-
-The raw opinion data used in this study is publicly available from the Free Law Project's
-CourtListener database (\url{https://www.courtlistener.com/}), which provides open access
-to the full text and metadata of all published United States federal court opinions. The
-Python code used to construct the F-hypergraph, compute the structural profiles, generate
-the Legal Argument Space embedding, and produce all figures in this paper is available at
-\url{https://github.com/mboudour/legal-citation-hypergraphs}.
-
-\section*{Competing Interests}
-
-The author declares no competing interests.
-
-\section*{Funding}
-
-This research received no specific grant from any funding agency in the public, commercial,
-or not-for-profit sectors.
-
-\section*{Author Contributions}
-
-M.B.\ conceived the study, developed the computational framework, conducted all analyses,
-and wrote the manuscript.
-
-\bibliographystyle{plainnat}
+\bibliographystyle{spmpsci}
 \bibliography{references}
-
 \end{document}
